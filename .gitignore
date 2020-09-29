@@ -24,4 +24,4 @@ docs/site/
 Manifest.toml
 
 # Do not track test code
-test/
+scratch/
