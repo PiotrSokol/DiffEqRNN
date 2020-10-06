@@ -1,5 +1,4 @@
-include("../layers.jl")
-import Interpolations: degree, NoInterp, itpflag, tcollect, AbstractInterpolation
+include("../interp.jl")
 import DiffEqFlux:NeuralDELayer, basic_tgrad
 import DifferentialEquations: DiscreteCallback
 tdim = 2
@@ -20,7 +19,7 @@ struct RNNODE{M<:AbstractRNNDELayer,P,RE,T,A,K,S,I} <: NeuralDELayer
         if isnothing(p)
             p = _p
         end
-        if isnothing(tspan)
+        if isnothing(saveat)
             saveat = tspan[end]
         end
         new{typeof(model),typeof(p),typeof(re),
@@ -34,7 +33,7 @@ function derivative(x::A,t::Type{F}) where {F<:AbstractFloat, A<:Union{VecOrMat{
     Δt = 1 : size(ẋ,tdim)+1
     tstops = collect(t,Δt)
     condition(u,t,integrator) = t ∈ tstops
-    affect!(integrator) = integrator.u.x[2]+= selectdim(ẋ,tdim, Int(integrator.t) )
+    affect!(integrator) = integrator.u.x[2]+= selectdim(ẋ,tdim, round(Int64,integrator.t) )
     return PresetTimeCallback(tstops,affect!)
 end
 

@@ -1,4 +1,4 @@
-import DataInterpolations: munge_data, AbstractInterpolation
+import DataInterpolations: munge_data, AbstractInterpolation, LinearInterpolation, CubicSpline
 import LinearAlgebra:Tridiagonal
 
 # Cubic Spline Interpolation
@@ -46,7 +46,7 @@ end
 function (A::CubicSplineFixedGrid{<:AbstractVector{<:Number}})(t::Number)
   re = t%A.Δt
   re /=A.Δt
-  i = Int(floor(t/A.Δt))
+  i = floor(Int64,t/A.Δt)
   i == i > length(A.t) ? i = length(A.t) - 1 : nothing
   i == 0 ? i += 1 : nothing
   z(i) = A.z[i]
@@ -60,7 +60,7 @@ end
 function (A::CubicSplineFixedGrid{<:AbstractMatrix{<:Number}})(t::Number)
   re = t%A.Δt
   re /=A.Δt
-  i = Int(floor(t/A.Δt))
+  i = floor(Int64,t/A.Δt)
   i == i > length(A.t) ? i = length(A.t) - 1 : nothing
   i == 0 ? i += 1 : nothing
   u(i) = view(B.u, :,i)
@@ -71,12 +71,6 @@ function (A::CubicSplineFixedGrid{<:AbstractMatrix{<:Number}})(t::Number)
   I + C + D
 end
 
-
-U = randn(2,1000)
-
-u = copy(U[1,:])
-
-t = 1.0collect(1:1000)
 
 function derivative(A::LinearInterpolation{<:AbstractVector{<:Number}}, t::Number)
     idx = findfirst(x -> x >= t, A.t) - 1
