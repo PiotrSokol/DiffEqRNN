@@ -1,6 +1,7 @@
 include("../interp.jl")
 import DiffEqFlux:NeuralDELayer, basic_tgrad
 import DifferentialEquations: DiscreteCallback
+
 tdim = 2
 xdim = 1
 struct RNNODE{M<:AbstractRNNDELayer,P,RE,T,A,K,S,I} <: NeuralDELayer
@@ -52,16 +53,23 @@ function (n::RNNODE)(x::A,p=n.p)
     solve(prob,n.args...;saveat=n.saveat, sense=sense,callback =cb, n.kwargs...)
 end
 
-function (n::RNNODE)(x::T,p=n.p) where {T<:AbstractInterpolation}
-    @assert ~isa(degree(filter(λ -> ~isa(λ, NoInterp), tcollect(itpflag, x))[1]), Constant)
-    if isa(degree(filter(λ -> ~isa(λ, NoInterp), tcollect(itpflag, x))[1]), Linear)
-        tstops = collect(eltype(n.tspan), itp.parentaxes[tdim])
-    else
-        tstops = nothing
-    end
+function (n::RNNODE)(x::T,p=n.p) where {T<:Union{CubicSpline,CubicSplineFixedGrid}}
     function dudt_(u,p,t)
             ḣ = n.re(p)(u.x[1],u.x[2])
-            ẋ = zeros(eltype(u))
+            ẋ = permutedims(derivative(x, t))
+            return ArrayPartition(ḣ,ẋ)
+    end
+    ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
+    prob = ODEProblem{false}(ff,x,getfield(n,:tspan),p)
+    sense = InterpolatingAdjoint(autojacvec=ZygoteVJP())
+    solve(prob,n.args...;sense=sense, n.kwargs...)
+end
+
+function (n::RNNODE)(x::T,p=n.p) where {T<:LinearInterpolation}
+    tstops = collect(eltype(n.tspan), x.t)
+    function dudt_(u,p,t)
+            ḣ = n.re(p)(u.x[1],u.x[2])
+            ẋ = permutedims(derivative(x, t))
             return ArrayPartition(ḣ,ẋ)
     end
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
@@ -69,7 +77,3 @@ function (n::RNNODE)(x::T,p=n.p) where {T<:AbstractInterpolation}
     sense = InterpolatingAdjoint(autojacvec=ZygoteVJP())
     solve(prob,n.args...;sense=sense,tstops, n.kwargs...)
 end
-
-
-[c[:] for c in eachrow(x)]
-o = LinearInterupolation.(STH,[1:length(x₀)])

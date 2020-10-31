@@ -21,7 +21,7 @@ function CubicSplineFixedGrid(u::AV,t₀::T=0,t₁::T=length(u)-1,Δt::T=1) wher
   dl = h[2:n+1]
   d_tmp = 2 .* (h[1:n+1] .+ h[2:n+2])
   du = h[2:n+1]
-  tA = LinearAlgebra.Tridiagonal(dl,d_tmp,du)
+  tA = Tridiagonal(dl,d_tmp,du)
   d = map(i -> i == 1 || i == n + 1 ? 0 : 6(u[i+1] - 2u[i] + u[i-1]), 1:n+1)
   z = tA\d
   CubicSplineFixedGrid{true}(u,t₀,t₁,Δt,z)
@@ -37,7 +37,7 @@ function CubicSplineFixedGrid(U::AV,t₀::T=0,t₁::T=size(U,2)-1,Δt::T=1) wher
   du = dl = copy(h[2:n+1])
   d_tmp = 2 .* (h[1:n+1] .+ h[2:n+2])
 
-  tA = LinearAlgebra.Tridiagonal(dl,d_tmp,du)
+  tA = Tridiagonal(dl,d_tmp,du)
   d = reduce(hcat, map(i -> i == 1 || i == n + 1 ? zeros(eltype(U), size(U,1)) : 6(view(U, :, i+1) - 2view(U, :, i) + view(U, :, i-1)  ), 1:n+1) )
   z = tA\d'
   CubicSplineFixedGrid{true}(U,t₀,t₁,Δt,z)
