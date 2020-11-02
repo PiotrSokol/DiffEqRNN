@@ -25,4 +25,3 @@ Manifest.toml
 
 *.DS_Store
 # Do not track test code
-scratch/

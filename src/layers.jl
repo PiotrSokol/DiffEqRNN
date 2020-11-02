@@ -1,4 +1,4 @@
-include("../utils.jl")
+include("src/utils.jl")
 abstract type AbstractRNNDELayer <: Function end
 import Flux: functor, gate
 """

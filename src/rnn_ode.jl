@@ -1,4 +1,4 @@
-include("../interp.jl")
+include("src/interp.jl")
 import DiffEqFlux:NeuralDELayer, basic_tgrad
 import DifferentialEquations: DiscreteCallback
 
