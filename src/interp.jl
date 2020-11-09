@@ -1,5 +1,6 @@
-import DataInterpolations: munge_data, AbstractInterpolation, LinearInterpolation, CubicSpline
+import DataInterpolations: munge_data, AbstractInterpolation, LinearInterpolation, CubicSpline, ConstantInterpolation
 import LinearAlgebra:Tridiagonal
+import Zygote:ignore
 
 # Cubic Spline Interpolation
 struct CubicSplineFixedGrid{uType,tType,RangeType,zType,FT,T} <: AbstractInterpolation{FT,T}
@@ -47,7 +48,7 @@ function (A::CubicSplineFixedGrid{<:AbstractVector{<:Number}})(t::Number)
   re = t%A.Δt
   re /=A.Δt
   i = floor(Int64,t/A.Δt)
-  i == i > length(A.t) ? i = length(A.t) - 1 : nothing
+  i == i >= length(A.t) ? i = length(A.t) - 1 : nothing
   i == 0 ? i += 1 : nothing
   z(i) = A.z[i]
   u(i) = A.u[i]
@@ -61,10 +62,10 @@ function (A::CubicSplineFixedGrid{<:AbstractMatrix{<:Number}})(t::Number)
   re = t%A.Δt
   re /=A.Δt
   i = floor(Int64,t/A.Δt)
-  i == i > length(A.t) ? i = length(A.t) - 1 : nothing
+  i == i >= length(A.t) ? i = length(A.t) - 1 : nothing
   i == 0 ? i += 1 : nothing
-  u(i) = view(B.u, :,i)
-  z(i) = view(B.z, i,:)
+  u(i) = view(A.u, :,i)
+  z(i) = view(A.z, i,:)
   I = z(i) .* (A.Δt - re)^3 /6 .+ z(i+1) .* (re)^3 /6
   C = (u(i+1) .- z(i+1)./6).*(re)
   D = (u(i) .- z(i)./6).*(A.Δt - re)
@@ -72,52 +73,80 @@ function (A::CubicSplineFixedGrid{<:AbstractMatrix{<:Number}})(t::Number)
 end
 
 
-function derivative(A::LinearInterpolation{<:AbstractVector{<:Number}}, t::Number)
-    idx = findfirst(x -> x >= t, A.t) - 1
-    idx == 0 ? idx += 1 : nothing
-    θ = 1 / (A.t[idx+1] - A.t[idx])
-    (A.u[idx+1] - A.u[idx]) / (A.t[idx+1] - A.t[idx])
+function LinearInterpolationFixedGrid(u::AV,t₀::T=0,t₁::T=length(u),Δt::T=1) where {T<:Number,AV<:AbstractVector{<:Number}}
+    t₀,t₁,Δt = promote(t₀,t₁,Δt)
+    n = length(u)
+    @assert length(t₀:Δt:t₁-Δt) == n
+    t = collect(t₀:Δt:t₁-Δt)
+    u, t = munge_data(u, t)
+    return LinearInterpolation{true}(u,t)
 end
 
-function derivative(A::LinearInterpolation{<:AbstractMatrix{<:Number}}, t::Number)
-    idx = findfirst(x -> x >= t, A.t) - 1
-    idx == 0 ? idx += 1 : nothing
-    θ = 1 / (A.t[idx+1] - A.t[idx])
-    (A.u[:, idx+1] - A.u[:, idx]) / (A.t[idx+1] - A.t[idx])
+function LinearInterpolationFixedGrid(U::AV,t₀::T=0,t₁::T=size(U,2),Δt::T=1) where {T<:Number,AV<:AbstractMatrix{<:Number}}
+    t₀,t₁,Δt = promote(t₀,t₁,Δt)
+    n = size(U,2) 
+    @assert length(t₀:Δt:t₁-Δt) == n
+    t = collect(t₀:Δt:t₁-Δt)
+    u, t = munge_data(U, t)
+    return LinearInterpolation{true}(U,t)
 end
 
-function derivative(A::CubicSpline{<:AbstractVector{<:Number}}, t::Number)
-    i = findfirst(x -> x >= t, A.t)
-    i == nothing ? i = length(A.t) - 1 : i -= 1
-    i == 0 ? i += 1 : nothing
-    dI = -3A.z[i] * (A.t[i + 1] - t)^2 / (6A.h[i + 1]) + 3A.z[i + 1] * (t - A.t[i])^2 / (6A.h[i + 1])
-    dC = A.u[i + 1] / A.h[i + 1] - A.z[i + 1] * A.h[i + 1] / 6
-    dD = -(A.u[i] / A.h[i + 1] - A.z[i] * A.h[i + 1] / 6)
-    dI + dC + dD
+function ConstantInterpolationFixedGrid(u::AV,t₀::T=0,t₁::T=length(u),Δt::T=1) where {T<:Number,AV<:AbstractVector{<:Number}}
+    t₀,t₁,Δt = promote(t₀,t₁,Δt)
+    n = length(u)
+    @assert length(t₀:Δt:t₁-Δt) == n
+    t = collect(t₀:Δt:t₁-Δt)
+    u, t = munge_data(u, t)
+    return ConstantInterpolation{true}(u,t,:left)
 end
 
-function derivative(C::CubicSplineFixedGrid{<:AbstractVector{<:Number}}, t::Number)
-    re = t%C.Δt
-    re /=C.Δt
-    i = Int(floor(t/C.Δt))
-    i == i > length(C.t) ? i = length(C.t) - 1 : nothing
-    i == 0 ? i += 1 : nothing
-    dI = -3C.z[i] * (C.Δt - re)^2 / 6 + 3C.z[i + 1] * (re)^2 / 6
-    dC = C.u[i + 1] - C.z[i + 1] / 6
-    dD = -(C.u[i]- C.z[i]/ 6)
-    dI + dC + dD
+function ConstantInterpolationFixedGrid(U::AV,t₀::T=0,t₁::T=size(U,2),Δt::T=1) where {T<:Number,AV<:AbstractMatrix{<:Number}}
+    t₀,t₁,Δt = promote(t₀,t₁,Δt)
+    n = size(U,2)
+    @assert length(t₀:Δt:t₁-Δt) == n
+    t = collect(t₀:Δt:t₁-Δt)
+    u, t = munge_data(U, t)
+    return ConstantInterpolation{true}(U,t,:left)
 end
 
-function derivative(B::CubicSplineFixedGrid{<:AbstractMatrix{<:Number}}, t::Number)
-    re = t%B.Δt
-    re /=B.Δt
-    i = Int(floor(t/B.Δt))
-    i == i > length(B.t) ? i = length(B.t) - 1 : nothing
-    i == 0 ? i += 1 : nothing
-    u(i) = view(B.u, :,i)
-    z(i) = view(B.z, i,:)
-    dI = -3z(i) .* (B.Δt - re)^2 /6 .+ 3z(i+1) .* (re)^2 / 6
-    dC = u(i+1) .- z(i+1)./ 6
-    dD = -(u(i) .- z(i)./ 6)
-    dI .+ dC .+ dD
+struct nograd{uType}
+    uType::uType
+    interpolant
+    dtype
+    t
+    function nograd(interp::ITP) where {ITP<:AbstractInterpolation}
+        new{typeof(interp.u)}(typeof(interp.u)interp,eltype(interp.u),collect(interp.t))
+    end
+end
+"""
+Instructs Zygote to ignore the following code block.
+Analogous to with torch.nograd(): context in Python
+"""
+function (n::nograd)(t)
+ x = ignore() do
+    t = convert(n.dtype,t)
+    permutedims(n.interpolant(t))
+  end
+end
+
+function batchsize(n::nograd)
+  size(n.interpolant.u)[1]
+end
+"""
+Fixes extrapolation issue -- DataInterpolations.jl prevents linear interpolation.
+"""
+function (A::LinearInterpolation{<:AbstractVector{<:Number}})(t::Number)
+  idx = findfirst(x->x>=t,A.t)
+  idx == nothing ? idx = length(A.t) - 1 : idx -= 1
+  idx == 0 ? idx += 1 : nothing
+  θ = (t - A.t[idx])/ (A.t[idx+1] - A.t[idx])
+  (1-θ)*A.u[idx] + θ*A.u[idx+1]
+end
+
+function (A::LinearInterpolation{<:AbstractMatrix{<:Number}})(t::Number)
+  idx = findfirst(x->x>=t,A.t)
+  idx == nothing ? idx = length(A.t) - 1 : idx -= 1
+  idx == 0 ? idx += 1 : nothing
+  θ = (t - A.t[idx])/ (A.t[idx+1] - A.t[idx])
+  (1-θ)*A.u[:,idx] + θ*A.u[:,idx+1]
 end

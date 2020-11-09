@@ -1,79 +1,71 @@
-include("src/interp.jl")
+include("/Users/piotrsokol/Documents/RNNODE.jl/src/interp.jl")
+include("/Users/piotrsokol/Documents/RNNODE.jl/src/layers.jl")
 import DiffEqFlux:NeuralDELayer, basic_tgrad
-import DifferentialEquations: DiscreteCallback
+using DifferentialEquations
+import OrdinaryDiffEq: ODEFunction, ODEProblem, solve
+import DiffEqSensitivity: InterpolatingAdjoint, ZygoteVJP
 
-tdim = 2
-xdim = 1
-struct RNNODE{M<:AbstractRNNDELayer,P,RE,T,A,K,S,I} <: NeuralDELayer
+struct RNNODE{M<:AbstractRNNDELayer,P,RE,T,A,K,VM,I} <: NeuralDELayer
     model::M
     p::P
     re::RE
     tspan::T
-    saveat::T
     args::A
     kwargs::K
-    xdim::I
+    u₀::VM
+    in::I
+    hidden::I
 
-
-    function RNNODE(model,tspan, xdim, args...;p = nothing, saveat = nothing, kwargs...)
+    function RNNODE(model,tspan, args...;p = nothing, u₀ = nothing, kwargs...)
         _p,re = Flux.destructure(model)
+        nhidden = size(model.Wᵣ)[2]
+        nin = size(model.Wᵢ)[2]
         if isnothing(p)
             p = _p
         end
-        if isnothing(saveat)
-            saveat = tspan[end]
-        end
+        if isnothing(u₀)
+            u₀ = 2rand(eltype(model.Wᵣ), nhidden ,1).-1  # code adapted to sigmoidal (tanh) RNNs -> for this reason u₀ ~ Unif over the [-1, 1] hypercube
         new{typeof(model),typeof(p),typeof(re),
-            typeof(tspan), typeof(saveat),
-            typeof(args),typeof(kwargs),typeof(xdim)}(
-            model,p,re,tspan,saveat,args,kwargs,xdim)
+            typeof(tspan),typeof(args),typeof(kwargs),typeof(u₀),
+            typeof(nin)}(
+            model,p,re,tspan,args,kwargs,u₀,nin,
+            nhidden)
+        end
     end
 end
-function derivative(x::A,t::Type{F}) where {F<:AbstractFloat, A<:Union{VecOrMat{<:AbstractFloat},CuArray{<:AbstractFloat}}}
-    ẋ = diff(x,dims=tdim)
-    Δt = 1 : size(ẋ,tdim)+1
-    tstops = collect(t,Δt)
-    condition(u,t,integrator) = t ∈ tstops
-    affect!(integrator) = integrator.u.x[2]+= selectdim(ẋ,tdim, round(Int64,integrator.t) )
-    return PresetTimeCallback(tstops,affect!)
-end
 
-function (n::RNNODE)(x::A,p=n.p)
-    where {A<:Union{VecOrMat{<:AbstractFloat},CuArray{<:AbstractFloat}}}
-
-    function dudt_(u,p,t)
-            ḣ = n.re(p)(u.x[1],u.x[2])
-            ẋ = zeros(eltype(u))
-            return ArrayPartition(ḣ,ẋ)
+function (n::RNNODE)(X::T; u₀=nothing, p=n.p) where {T<:Union{CubicSpline,CubicSplineFixedGrid}}
+    x = nograd(X)
+    if isnothing(u₀)
+        u₀ = repeat(n.u₀, 1, batchsize(x))
     end
-    cb = derivative(x,eltype(n.tspan))
+    dudt_(u,p,t) = n.re(p)(u,x(t))
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
-    prob = ODEProblem{false}(ff,x,getfield(n,:tspan),p)
-    sense = InterpolatingAdjoint(autojacvec=ZygoteVJP())
-    solve(prob,n.args...;saveat=n.saveat, sense=sense,callback =cb, n.kwargs...)
-end
-
-function (n::RNNODE)(x::T,p=n.p) where {T<:Union{CubicSpline,CubicSplineFixedGrid}}
-    function dudt_(u,p,t)
-            ḣ = n.re(p)(u.x[1],u.x[2])
-            ẋ = permutedims(derivative(x, t))
-            return ArrayPartition(ḣ,ẋ)
-    end
-    ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
-    prob = ODEProblem{false}(ff,x,getfield(n,:tspan),p)
+    prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
     sense = InterpolatingAdjoint(autojacvec=ZygoteVJP())
     solve(prob,n.args...;sense=sense, n.kwargs...)
 end
-
-function (n::RNNODE)(x::T,p=n.p) where {T<:LinearInterpolation}
-    tstops = collect(eltype(n.tspan), x.t)
-    function dudt_(u,p,t)
-            ḣ = n.re(p)(u.x[1],u.x[2])
-            ẋ = permutedims(derivative(x, t))
-            return ArrayPartition(ḣ,ẋ)
+"""
+Because of the low-order smoothness of LinearInterpolation and ConstantInterpolation, we force the solver to restart at new each data
+"""
+function (n::RNNODE)(X::T; u₀=nothing, p=n.p) where {T<:Union{LinearInterpolation,ConstantInterpolation}}
+    x = nograd(X)
+    if isnothing(u₀)
+        u₀ = repeat(n.u₀, 1, batchsize(x))
     end
+    dudt_(u,p,t) = n.re(p)(u,x(t))
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
-    prob = ODEProblem{false}(ff,x,getfield(n,:tspan),p)
+    prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
     sense = InterpolatingAdjoint(autojacvec=ZygoteVJP())
-    solve(prob,n.args...;sense=sense,tstops, n.kwargs...)
+    solve(prob,n.args...;sense=sense, n.kwargs...)
+end
+"""
+RNNODE with no input x defines an IVP for a homogenous system
+"""
+function (n::RNNODE)(u₀, p=n.p)
+    dudt_(u,p,t) = n.re(p)(u, zeros(eltype(u₀), n.in, 1) )
+    ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
+    prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
+    sense = InterpolatingAdjoint(autojacvec=ZygoteVJP())
+    solve(prob,n.args...;sense=sense, n.kwargs...)
 end
