@@ -1,7 +1,7 @@
 include("/Users/piotrsokol/Documents/RNNODE.jl/src/interp.jl")
 include("/Users/piotrsokol/Documents/RNNODE.jl/src/layers.jl")
 import DiffEqFlux:NeuralDELayer, basic_tgrad
-using DifferentialEquations
+using DifferentialEquations, DiffEqCallbacks
 import OrdinaryDiffEq: ODEFunction, ODEProblem, solve
 import DiffEqSensitivity: InterpolatingAdjoint, ZygoteVJP
 
@@ -68,4 +68,18 @@ function (n::RNNODE)(u₀, p=n.p)
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
     sense = InterpolatingAdjoint(autojacvec=ZygoteVJP())
     solve(prob,n.args...;sense=sense, n.kwargs...)
+end
+"""
+Helper code for saving adjoint variables and doing "gradient clipping"
+"""
+function generate_adj_saving_callback(rnn::AbstractRNNDELayer, saveat, bs::Int;hidden::Int = size(rnn.Wᵣ)[2],f::Function = identity)
+
+    saved_values = SavedValues(eltype(saveat), Array)
+    function save_func(u,t,integrator)
+        uˌ = u[1:bs*hidden]
+        uˌ= reshape(uˌ,hidden,bs)
+        return hcat(f.(eachcol(uˌ))...)
+    end
+    cb = SavingCallback(save_func, saved_values; saveat=saveat,tdir=-1)
+    return cb, saved_values
 end

@@ -10,12 +10,11 @@ struct CubicSplineFixedGrid{uType,tType,RangeType,zType,FT,T} <: AbstractInterpo
   Δt::tType
   t::RangeType
   z::zType
-  CubicSplineFixedGrid{FT}(u,t₀,t₁,Δt,z) where FT = new{typeof(u),typeof(t₀),typeof(t₀:Δt:t₁),typeof(z),FT,eltype(u)}(u,t₀,t₁,Δt,t₀:Δt:t₁,z)
+  CubicSplineFixedGrid{FT}(u,t₀,t₁,Δt,z) where FT = new{typeof(u),eltype(u),typeof(t₀:Δt:t₁),typeof(z),FT,eltype(u)}(u,t₀,t₁,Δt,t₀:Δt:t₁,z)
 end
 
 function CubicSplineFixedGrid(u::AV,t₀::T=0,t₁::T=length(u)-1,Δt::T=1) where {T<:Number,AV<:AbstractVector{<:Number}}
   @assert ~any(ismissing, u)
-  t₀,t₁,Δt = promote(t₀,t₁,Δt)
   n = length(u) - 1
   @assert length(t₀:Δt:t₁-Δt) == n
   h = vcat( zero(eltype(u)), ones(eltype(u),n), zero(eltype(u)))
@@ -29,8 +28,6 @@ function CubicSplineFixedGrid(u::AV,t₀::T=0,t₁::T=length(u)-1,Δt::T=1) wher
 end
 
 function CubicSplineFixedGrid(U::AV,t₀::T=0,t₁::T=size(U,2)-1,Δt::T=1) where {T<:Number,AV<:AbstractMatrix{<:Number}}
-  # u, t = munge_data(u, t)
-  t₀,t₁,Δt = promote(t₀,t₁,Δt)
   @assert ~any(ismissing, U)
   n = size(U,2) - 1
   @assert length(t₀:Δt:t₁-Δt) == n
@@ -109,20 +106,29 @@ function ConstantInterpolationFixedGrid(U::AV,t₀::T=0,t₁::T=size(U,2),Δt::T
     return ConstantInterpolation{true}(U,t,:left)
 end
 
-struct nograd{uType}
-    uType::uType
-    interpolant
+struct nograd{T}
+    interpolant::T
     dtype
     t
     function nograd(interp::ITP) where {ITP<:AbstractInterpolation}
-        new{typeof(interp.u)}(typeof(interp.u)interp,eltype(interp.u),collect(interp.t))
+        new{typeof(interp)}(interp,eltype(interp.u),collect(interp.t))
     end
 end
 """
 Instructs Zygote to ignore the following code block.
 Analogous to with torch.nograd(): context in Python
 """
-function (n::nograd)(t)
+const UnivInpt = Union{LinearInterpolation{T},ConstantInterpolation{T},CubicSpline{T},CubicSplineFixedGrid{T}} where  T<:AbstractVector{<:Number}
+const MultivInpt = Union{LinearInterpolation{T},ConstantInterpolation{T},CubicSpline{T},CubicSplineFixedGrid{T}} where  T<:AbstractMatrix{<:Number}
+
+function (n::nograd{<:UnivInpt})(t)
+ x = ignore() do
+    t = convert(n.dtype,t)
+    n.interpolant(t)
+  end
+end
+
+function (n::nograd{<:MultivInpt})(t)
  x = ignore() do
     t = convert(n.dtype,t)
     permutedims(n.interpolant(t))
