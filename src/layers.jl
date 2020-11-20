@@ -3,7 +3,7 @@ abstract type AbstractRNNDELayer <: Function end
 using Flux
 using Base
 import Flux: functor, gate
-import Flux: kaiming_normal
+import Flux: kaiming_normal, glorot_uniform
 const ℕ = kaiming_normal
 """
 Vanilla RNN
@@ -78,3 +78,38 @@ end
 
 Base.show(io::IO, l::∂GRUCell) =
   print(io, "∂GRUCell(", size(l.Wᵢ, 2), ", ", size(l.Wᵢ, 1)÷3, ")")
+
+"""
+Continuous time LSTM
+"""
+struct ∂LSTMCell{A,V} <:AbstractRNNDELayer
+  Wᵢ::A
+  Wᵣ::A
+  b::V
+end
+
+function ∂LSTMCell(in::Integer, out::Integer;
+                  init = glorot_uniform,
+                  initb = zeros)
+  cell = ∂LSTMCell(init(out * 4, in), init(out * 4, out), initb(out * 4))
+  cell.b[gate(out, 2)] .= 2
+  return cell
+end
+
+function (m::∂LSTMCell)(hc, x)
+  b, o = m.b, size(hc, 1)÷2
+  h, c = gate(hc, o, 1), gate(hc, o, 2)
+  g = m.Wᵢ*x .+ m.Wᵣ*h .+ b
+  input = σ.(gate(g, o, 1))
+  forget = σ.(gate(g, o, 2))
+  cell = tanh.(gate(g, o, 3))
+  output = σ.(gate(g, o, 4))
+  ċ = forget .* c .+ input .* cell .- c
+  ḣ = output .* tanh.(c) .- h
+  return vcat(ḣ, ċ)
+end
+
+@Flux.functor ∂LSTMCell
+
+Base.show(io::IO, l::∂LSTMCell) =
+  print(io, "∂LSTMCell(", size(l.Wᵢ, 2), ", ", size(l.Wᵢ, 1)÷4, ")")

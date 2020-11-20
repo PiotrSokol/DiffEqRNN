@@ -110,8 +110,9 @@ struct nograd{T}
     interpolant::T
     dtype
     t
-    function nograd(interp::ITP) where {ITP<:AbstractInterpolation}
-        new{typeof(interp)}(interp,eltype(interp.u),collect(interp.t))
+    f
+    function nograd(interp::ITP; f = identity) where {ITP<:AbstractInterpolation}
+        new{typeof(interp)}(interp,eltype(interp.u),collect(interp.t),f)
     end
 end
 """
@@ -124,14 +125,14 @@ const MultivInpt = Union{LinearInterpolation{T},ConstantInterpolation{T},CubicSp
 function (n::nograd{<:UnivInpt})(t)
  x = ignore() do
     t = convert(n.dtype,t)
-    n.interpolant(t)
+    n.interpolant(t) |> n.f
   end
 end
 
 function (n::nograd{<:MultivInpt})(t)
  x = ignore() do
     t = convert(n.dtype,t)
-    permutedims(n.interpolant(t))
+    permutedims(n.interpolant(t)) |> n.f
   end
 end
 
