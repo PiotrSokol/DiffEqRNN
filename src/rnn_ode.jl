@@ -15,8 +15,9 @@ struct RNNODE{M<:AbstractRNNDELayer,P,RE,T,A,K,VM,I} <: NeuralDELayer
     u₀::VM
     in::I
     hidden::I
+    preprocess
 
-    function RNNODE(model,tspan, args...;p = nothing, u₀ = nothing, kwargs...)
+    function RNNODE(model,tspan, args...;p = nothing, u₀ = nothing, preprocess= identity, kwargs...)
         _p,re = Flux.destructure(model)
         nhidden = size(model.Wᵣ)[2]
         nin = size(model.Wᵢ)[2]
@@ -29,13 +30,29 @@ struct RNNODE{M<:AbstractRNNDELayer,P,RE,T,A,K,VM,I} <: NeuralDELayer
             typeof(tspan),typeof(args),typeof(kwargs),typeof(u₀),
             typeof(nin)}(
             model,p,re,tspan,args,kwargs,u₀,nin,
-            nhidden)
+            nhidden, preprocess)
+        end
+    end
+    function RNNODE(model::∂LSTMCell,tspan, args...;p = nothing, u₀ = nothing, preprocess=identity, kwargs...)
+        _p,re = Flux.destructure(model)
+        nhidden = size(model.Wᵢ)[1]÷2
+        nin = size(model.Wᵢ)[2]
+        if isnothing(p)
+            p = _p
+        end
+        if isnothing(u₀)
+            u₀ = 2rand(eltype(model.Wᵣ), nhidden ,1).-1  # code adapted to sigmoidal (tanh) RNNs -> for this reason u₀ ~ Unif over the [-1, 1] hypercube
+        new{typeof(model),typeof(p),typeof(re),
+            typeof(tspan),typeof(args),typeof(kwargs),typeof(u₀),
+            typeof(nin)}(
+            model,p,re,tspan,args,kwargs,u₀,nin,
+            nhidden, preprocess)
         end
     end
 end
 
 function (n::RNNODE)(X::T; u₀=nothing, p=n.p) where {T<:Union{CubicSpline,CubicSplineFixedGrid}}
-    x = nograd(X)
+    x = nograd(X, f=n.preprocess)
     if isnothing(u₀)
         u₀ = repeat(n.u₀, 1, batchsize(x))
     end
@@ -49,7 +66,8 @@ end
 Because of the low-order smoothness of LinearInterpolation and ConstantInterpolation, we force the solver to restart at new each data
 """
 function (n::RNNODE)(X::T; u₀=nothing, p=n.p) where {T<:Union{LinearInterpolation,ConstantInterpolation}}
-    x = nograd(X)
+    x = nograd(X, f=n.preprocess)
+    tstops = eltype(n.u₀).(collect(cpt.t))
     if isnothing(u₀)
         u₀ = repeat(n.u₀, 1, batchsize(x))
     end
@@ -57,12 +75,12 @@ function (n::RNNODE)(X::T; u₀=nothing, p=n.p) where {T<:Union{LinearInterpolat
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
     sense = InterpolatingAdjoint(autojacvec=ZygoteVJP())
-    solve(prob,n.args...;sense=sense, n.kwargs...)
+    solve(prob,n.args...;sense=sense, tstops=tstops, n.kwargs...)
 end
 """
 RNNODE with no input x defines an IVP for a homogenous system
 """
-function (n::RNNODE)(u₀, p=n.p)
+function (n::RNNODE)(u₀; p=n.p)
     dudt_(u,p,t) = n.re(p)(u, zeros(eltype(u₀), n.in, 1) )
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
