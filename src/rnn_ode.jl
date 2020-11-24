@@ -54,7 +54,7 @@ end
 function (n::RNNODE)(X::T; u₀=nothing, p=n.p) where {T<:Union{CubicSpline,CubicSplineFixedGrid}}
     x = nograd(X, f=n.preprocess)
     if isnothing(u₀)
-        u₀ = repeat(n.u₀, 1, batchsize(x))
+        u₀ = repeat(n.u₀, 1, get_batchsize(x))
     end
     dudt_(u,p,t) = n.re(p)(u,x(t))
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
@@ -67,9 +67,9 @@ Because of the low-order smoothness of LinearInterpolation and ConstantInterpola
 """
 function (n::RNNODE)(X::T; u₀=nothing, p=n.p) where {T<:Union{LinearInterpolation,ConstantInterpolation}}
     x = nograd(X, f=n.preprocess)
-    tstops = eltype(n.u₀).(collect(cpt.t))
+    tstops = eltype(n.u₀).(collect(X.t))
     if isnothing(u₀)
-        u₀ = repeat(n.u₀, 1, batchsize(x))
+        u₀ = repeat(n.u₀, 1, get_batchsize(x))
     end
     dudt_(u,p,t) = n.re(p)(u,x(t))
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)

@@ -106,37 +106,43 @@ function ConstantInterpolationFixedGrid(U::AV,t₀::T=0,t₁::T=size(U,2),Δt::T
     return ConstantInterpolation{true}(U,t,:left)
 end
 
+"""
+Instructs Zygote to ignore the following code block.
+Analogous to with torch.nograd(): context in Python
+"""
+
+
+const UnivInpt = Union{LinearInterpolation{T},ConstantInterpolation{T},CubicSpline{T},CubicSplineFixedGrid{T}} where  T<:AbstractVector{<:Number}
+const MultivInpt = Union{LinearInterpolation{T},ConstantInterpolation{T},CubicSpline{T},CubicSplineFixedGrid{T}} where  T<:AbstractMatrix{<:Number}
+
 struct nograd{T}
     interpolant::T
     dtype
     t
     f
-    function nograd(interp::ITP; f = identity) where {ITP<:AbstractInterpolation}
+    function nograd(interp::ITP; f = identity ) where {ITP<:UnivInpt}
+        new{typeof(interp)}(interp,eltype(interp.u),collect(interp.t),f)
+    end
+    
+    function nograd(interp::ITP; f = permutedims ) where {ITP<:MultivInpt}
         new{typeof(interp)}(interp,eltype(interp.u),collect(interp.t),f)
     end
 end
-"""
-Instructs Zygote to ignore the following code block.
-Analogous to with torch.nograd(): context in Python
-"""
-const UnivInpt = Union{LinearInterpolation{T},ConstantInterpolation{T},CubicSpline{T},CubicSplineFixedGrid{T}} where  T<:AbstractVector{<:Number}
-const MultivInpt = Union{LinearInterpolation{T},ConstantInterpolation{T},CubicSpline{T},CubicSplineFixedGrid{T}} where  T<:AbstractMatrix{<:Number}
+
 
 function (n::nograd{<:UnivInpt})(t)
  x = ignore() do
-    t = convert(n.dtype,t)
     n.interpolant(t) |> n.f
   end
 end
 
 function (n::nograd{<:MultivInpt})(t)
  x = ignore() do
-    t = convert(n.dtype,t)
-    permutedims(n.interpolant(t)) |> n.f
+    n.interpolant(t) |> n.f
   end
 end
 
-function batchsize(n::nograd)
+function get_batchsize(n::nograd)
   size(n.interpolant.u)[1]
 end
 """
