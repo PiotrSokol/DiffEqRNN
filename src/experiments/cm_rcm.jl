@@ -10,40 +10,42 @@ using PyCall
 using CUDA
 using Parameters: @with_kw, @unpack
 import Statistics: mean
-using NPZ
+using BSON,NPZ
 using UUIDs
 using EllipsisNotation
 using ProgressMeter
+using ArgParse
 """
     Instead of using Argparse, use Paramters.@with_kw since it requires less compilation time
 """
-@with_kw mutable struct Args
-    _seed::Int
-    alpha::Float32 = 1.5f0
-    architecture::String = "RNN_TANH"; @assert architecture ∈ ["RNN_TANH", "GRU", "LSTM"]
-    batchsize::Int = 128
-    cuda::Bool=false
-    data_dir = nothing
-    dataset::String = "cm"
-    factor = 1.f0
-    gradient_clipping::Float32 = 0.f0
-    hidden_size::Int = 250
-    hpsearch::Bool=false
-    initializer::String="default"; @assert initializer ∈ ["default","limitcycle"]
-    input_size::Int = 10
-    interpolation::String="PiecewiseConstant"; @assert interpolation=="PiecewiseConstant"
-    lr::Float32 = 0.01f0
-    max_epochs::Int = dataset == "cm" ? 60 : 150
-    max_lag::Int=120
-    min_lag::Int=100
-    optimizer::String = "ADAM"; @assert optimizer ∈ ["ADAM","Momentum"]
-    output_size::Int = 9
-    patience::Int=10
-    python_code_dir = nothing
-    save_dir = pwd()
-    sequence_len = 10
-    time_interval::Int = 100
-end
+# @with_kw mutable struct Args
+#     _seed::Int
+#     alpha::Float32 = 1.5f0
+#     architecture::String = "RNN_TANH"; @assert architecture ∈ ["RNN_TANH", "GRU", "LSTM"]
+#     batchsize::Int = 128
+#     cuda::Bool=false
+#     data_dir = nothing
+#     dataset::String = "cm"
+#     factor = 1.f0
+#     gradient_clipping::Float32 = 0.f0
+#     hidden_size::Int = 250
+#     hpsearch::Bool=false
+#     initializer::String="default"; @assert initializer ∈ ["default","limitcycle"]
+#     input_size::Int = 10
+#     interpolation::String="PiecewiseConstant"; @assert interpolation=="PiecewiseConstant"
+#     lr::Float32 = 0.01f0
+#     max_epochs::Int = dataset == "cm" ? 60 : 150
+#     max_lag::Int=120
+#     min_lag::Int=100
+#     optimizer::String = "ADAM"; @assert optimizer ∈ ["ADAM","Momentum"]
+#     output_size::Int = 9
+#     patience::Int=10
+#     python_code_dir = nothing
+#     save_dir = pwd()
+#     save_name::String
+#     sequence_len = 10
+#     time_interval::Int = 100
+# end
 
 function onehot(labels_raw; ntoken::Int=9)
     return  convertlabel(LabelEnc.OneOfK, labels_raw, LabelEnc.NativeLabels(collect(0:ntoken)))
@@ -107,7 +109,7 @@ function evaluate_set(model, data, 𝓁array, accarray, ℒ, set)
     loss_set = Float32[]
     total_correct = 0
     total = 0
-    @showprogress "Evaluating $set"  for (x,y) in data
+    @showprogress "Evaluating $set "  for (x,y) in data
         # Only evaluate accuracy for n_batches
         y = reshape(permutedims(y, (1,3,2)),9, prod(size(y)[2:3]))
         ŷ = model(x)
@@ -123,19 +125,115 @@ function evaluate_set(model, data, 𝓁array, accarray, ℒ, set)
     return nothing
 end
 
-function experiment(; kwargs)
+function experiment(args="" )
     FT = Float32
-    args = Args(; kwargs...)
 
-    @unpack architecture, batchsize, hidden_size, input_size, output_size, max_epochs, data_dir, save_dir, factor, optimizer, hpsearch, gradient_clipping, alpha, cuda, python_code_dir, patience, min_lag, max_lag, time_interval, dataset, initializer = args
+    s = ArgParseSettings()
+    s.prog = "cm_rcm.jl : Copy-Memmory / Random Copy-Memmory "
+
+    s.description="Trains a continous time RNN on the copy memory task, with potentially random delay between the input sequence and output."
+
+    s.exc_handler=ArgParse.debug_handler
+    @add_arg_table s begin
+        "--_seed"
+            arg_type = Int
+            default = 1
+        "--alpha"
+            arg_type = Float32
+            default = 1.5f0
+            dest_name = α
+        "--architecture"
+            arg_type = String
+            default = "RNN_TANH"
+            range_tester = (x->x ∈ ["RNN_TANH", "GRU", "LSTM"])
+        "--batchsize"
+            arg_type = Int
+            default = 100
+        "--cuda"
+            action = :store_true
+        "--data_dir"
+            arg_type = String
+            default = pwd()
+        "--dataset"
+            arg_type = String
+            default = "cm"
+        "--factor"
+            arg_type = Float32
+            default = 1.f0
+            range_tester = (x->  0. < x <= 1. )
+        "--gradient_clipping"
+            arg_type = Float32
+            default = Float32(1e3)
+            range_tester = (x->  0. < x)
+        "--hidden_size"
+            arg_type = Int
+            default = 250
+        "--hpsearch"
+            action = :store_true
+        "--initializer"
+            arg_type = String
+            default = "limitcycle"
+            range_tester = (x->x ∈ ["limitcycle", "default", "eoc"])
+        "--input_size"
+            arg_type = Int
+            default = 10
+        "--interpolation"
+            arg_type = String
+            default = "PiecewiseConstant"
+            range_tester = (x -> x ∈ ["PiecewiseConstant"])
+        "--lr"
+            arg_type = Float32
+            default = 1e-3
+            dest_name = η
+        "--max_epochs"
+            arg_type = Int
+            default = 3 # TODO set to 60
+        "--max_lag"
+            arg_type = Int
+            default = 120
+        "--min_lag"
+            arg_type = Int
+            default = 100
+        "--optimizer"
+            arg_type = String
+            default = "ADAM"
+            range_tester = (x->x ∈ ["ADAM", "Momentum"])
+        "--output_size"
+            arg_type = Int
+            default = 9
+        "--patience"
+            arg_type = Int
+            default = 10
+        "--python_code_dir"
+            arg_type = String
+            default = "/Users/piotrsokol/Documents/block-orthogonal/src/"
+            # required = true # TODO remove default, make required
+        "--save_dir"
+            arg_type = String
+            default = pwd()
+        "--save_name"
+            arg_type = String
+            default = uuid1()
+        "--sequence_len"
+            arg_type = Int
+            default = 10
+        "--time_interval"
+            arg_type = Int
+            default = 100
+    end
+    parsed = parse_args(s;as_symbols=true)
+    for (k,v) in parsed
+        eval(:($(k) = $v))
+    end
+    # args = Args(; kw...)
+    # @unpack architecture, batchsize, hidden_size, input_size, output_size, max_epochs, data_dir, save_dir, factor, optimizer, hpsearch, gradient_clipping, alpha, cuda, python_code_dir, patience, min_lag, max_lag, time_interval, dataset, initializer, save_name = args
     
     optimizer = Symbol(optimizer)
-    α, η = args.alpha, args.lr
 
     if cuda
         try 
-            using CUDA
             device = has_cuda ? gpu : cpu
+            CUDA.allowscalar(false)
         catch ex
             @warn "CUDA requested but CUDA.jl fails to load" exception=(ex,catch_backtrace())
             device = cpu
@@ -196,7 +294,7 @@ function experiment(; kwargs)
     ΔIT = 0
     min_ℒ = Inf
     Δthr = 1e-4
-    @showprogress "Epochs" for i in 1:max_epochs
+    @showprogress "Epochs " for i in 1:max_epochs
         Flux.train!((x,y)->ℒ(nn(x),y), params(nn), train_loader, opt)
         
         if mapreduce(x -> isnan.(vec(x)), any ∘ vcat, params(nn))
@@ -225,11 +323,11 @@ function experiment(; kwargs)
     else
         metrics[:fname] = fname
     end
-    npzwrite(savename, metrics)
+    npzwrite(save_name, metrics)
 end
 
 
 
 if abspath(PROGRAM_FILE) == @__FILE__ 
-    experiment()
+    experiment(ARGS)
 end
