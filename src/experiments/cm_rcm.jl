@@ -15,6 +15,7 @@ using UUIDs
 using EllipsisNotation
 using ProgressMeter
 using ArgParse
+FT = Float32
 """
     Instead of using Argparse, use Paramters.@with_kw since it requires less compilation time
 """
@@ -126,7 +127,6 @@ function evaluate_set(model, data, 𝓁array, accarray, ℒ, set)
 end
 
 function experiment(args="" )
-    FT = Float32
 
     s = ArgParseSettings()
     s.prog = "cm_rcm.jl : Copy-Memmory / Random Copy-Memmory "
@@ -141,12 +141,12 @@ function experiment(args="" )
         "--alpha"
             arg_type = Float32
             default = 1.5f0
-            dest_name = α
+            # dest_name = α
         "--architecture"
             arg_type = String
             default = "RNN_TANH"
             range_tester = (x->x ∈ ["RNN_TANH", "GRU", "LSTM"])
-        "--batchsize"
+        "--bs"
             arg_type = Int
             default = 100
         "--cuda"
@@ -183,8 +183,8 @@ function experiment(args="" )
             range_tester = (x -> x ∈ ["PiecewiseConstant"])
         "--lr"
             arg_type = Float32
-            default = 1e-3
-            dest_name = η
+            default = Float32(1e-3)
+            # dest_name = η
         "--max_epochs"
             arg_type = Int
             default = 3 # TODO set to 60
@@ -197,7 +197,7 @@ function experiment(args="" )
         "--optimizer"
             arg_type = String
             default = "ADAM"
-            range_tester = (x->x ∈ ["ADAM", "Momentum"])
+            # range_tester = (x->x ∈ ["ADAM", "Momentum"])
         "--output_size"
             arg_type = Int
             default = 9
@@ -213,7 +213,7 @@ function experiment(args="" )
             default = pwd()
         "--save_name"
             arg_type = String
-            default = uuid1()
+            default = string(uuid1())
         "--sequence_len"
             arg_type = Int
             default = 10
@@ -223,12 +223,16 @@ function experiment(args="" )
     end
     parsed = parse_args(s;as_symbols=true)
     for (k,v) in parsed
-        eval(:($(k) = $v))
+        myexpression = k == :optimizer ? :(OPT = $v) : :($(k) = $v)
+        println(myexpression)
+        eval(myexpression)
     end
+    α = alpha
+    η = lr
     # args = Args(; kw...)
     # @unpack architecture, batchsize, hidden_size, input_size, output_size, max_epochs, data_dir, save_dir, factor, optimizer, hpsearch, gradient_clipping, alpha, cuda, python_code_dir, patience, min_lag, max_lag, time_interval, dataset, initializer, save_name = args
     
-    optimizer = Symbol(optimizer)
+    optimizer = Symbol(OPT)
 
     if cuda
         try 
@@ -255,7 +259,7 @@ function experiment(args="" )
     import sys
     sys.path.insert(0, $python_code_dir)
     """
-    _get_data(set) = get_data(batchsize, dataset, device, max_lag=max_lag, min_lag=min_lag, set=set, time_interval=time_interval)
+    _get_data(set) = get_data(bs, dataset, device, max_lag=max_lag, min_lag=min_lag, set=set, time_interval=time_interval)
     if hpsearch
         train_loader,valid_loader = _get_data.(sets)
         eval_sets = Dict(:valid=>valid_loader)
@@ -290,7 +294,7 @@ function experiment(args="" )
     ℒ(ŷ::VecOrMat,y::VecOrMat) = nll(ŷ,y)
     ℒ(ŷ::VecOrMat,y::AbstractArray) = ℒ(ŷ, reshape(permutedims(y, (1,3,2)),9, prod(size(y)[2:3])))
     
-    opt = Optimiser(ClipValue(gradient_clipping), eval(optimizer)(η))
+    opt = Flux.Optimiser(ClipValue(gradient_clipping), eval(optimizer)(η))
     ΔIT = 0
     min_ℒ = Inf
     Δthr = 1e-4
