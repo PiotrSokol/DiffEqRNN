@@ -16,43 +16,12 @@ using EllipsisNotation
 using ProgressMeter
 using ArgParse
 FT = Float32
-"""
-    Instead of using Argparse, use Paramters.@with_kw since it requires less compilation time
-"""
-# @with_kw mutable struct Args
-#     _seed::Int
-#     alpha::Float32 = 1.5f0
-#     architecture::String = "RNN_TANH"; @assert architecture ∈ ["RNN_TANH", "GRU", "LSTM"]
-#     batchsize::Int = 128
-#     cuda::Bool=false
-#     data_dir = nothing
-#     dataset::String = "cm"
-#     factor = 1.f0
-#     gradient_clipping::Float32 = 0.f0
-#     hidden_size::Int = 250
-#     hpsearch::Bool=false
-#     initializer::String="default"; @assert initializer ∈ ["default","limitcycle"]
-#     input_size::Int = 10
-#     interpolation::String="PiecewiseConstant"; @assert interpolation=="PiecewiseConstant"
-#     lr::Float32 = 0.01f0
-#     max_epochs::Int = dataset == "cm" ? 60 : 150
-#     max_lag::Int=120
-#     min_lag::Int=100
-#     optimizer::String = "ADAM"; @assert optimizer ∈ ["ADAM","Momentum"]
-#     output_size::Int = 9
-#     patience::Int=10
-#     python_code_dir = nothing
-#     save_dir = pwd()
-#     save_name::String
-#     sequence_len = 10
-#     time_interval::Int = 100
-# end
 
 function onehot(labels_raw; ntoken::Int=9)
     return  convertlabel(LabelEnc.OneOfK, labels_raw, LabelEnc.NativeLabels(collect(0:ntoken)))
 end
 
-function get_data(batchsize, dataset, device; max_lag, min_lag, set::Symbol, time_interval)
+function get_data(batchsize, dataset, device; max_lag, min_lag, set::Symbol, time_interval, output_size)
     
     N = Dict(:train=> Int(1e4), :test=> Int(1e3), :valid=>Int(1e4))
     if dataset == "rcm"
@@ -64,7 +33,7 @@ function get_data(batchsize, dataset, device; max_lag, min_lag, set::Symbol, tim
     
     x = permutedims(x)
     y = reshape(y, size(y)[1],size(y)[2],1)
-    y = mapslices( x-> onehot(vec(x)), y, dims=[1,3])
+    y = mapslices( x-> onehot(vec(x), ntoken=output_size-1), y, dims=[1,3])
 
     return DataLoader(device.((x, y)); batchsize = batchsize, shuffle = set == :train ? true : false)
 end
@@ -156,7 +125,7 @@ function experiment(args="" )
             default = pwd()
         "--dataset"
             arg_type = String
-            default = "cm"
+            default = "rcm"
         "--factor"
             arg_type = Float32
             default = 1.f0
@@ -187,7 +156,7 @@ function experiment(args="" )
             # dest_name = η
         "--max_epochs"
             arg_type = Int
-            default = 3 # TODO set to 60
+            default = 1 # TODO set to 60
         "--max_lag"
             arg_type = Int
             default = 120
@@ -213,7 +182,7 @@ function experiment(args="" )
             default = pwd()
         "--save_name"
             arg_type = String
-            default = string(uuid1())
+            default = "data"
         "--sequence_len"
             arg_type = Int
             default = 10
@@ -259,14 +228,15 @@ function experiment(args="" )
     import sys
     sys.path.insert(0, $python_code_dir)
     """
-    _get_data(set) = get_data(bs, dataset, device, max_lag=max_lag, min_lag=min_lag, set=set, time_interval=time_interval)
+    _get_data(set) = get_data(bs, dataset, device, max_lag=max_lag, min_lag=min_lag, set=set, time_interval=time_interval, output_size=output_size)
+    
     if hpsearch
         train_loader,valid_loader = _get_data.(sets)
         eval_sets = Dict(:valid=>valid_loader)
     else
         train_loader,valid_loader, test_loader = _get_data.(sets)
         eval_sets = Dict(:valid=>valid_loader, :test=>test_loader)
-        fname = string(uuid1(),".bson")
+        fname = save_name*".bson"
     end
     metrics = Dict(:train=> Dict(:loss=>FT[], :accuracy=>FT[]), :test=>Dict(:loss=>FT[], :accuracy=>FT[]), :valid=>Dict(:loss=>FT[], :accuracy=>FT[]))
     """
@@ -292,7 +262,7 @@ function experiment(args="" )
     """
     nll =  get_loss(dataset, max_lag, min_lag, time_interval)
     ℒ(ŷ::VecOrMat,y::VecOrMat) = nll(ŷ,y)
-    ℒ(ŷ::VecOrMat,y::AbstractArray) = ℒ(ŷ, reshape(permutedims(y, (1,3,2)),9, prod(size(y)[2:3])))
+    ℒ(ŷ::VecOrMat,y::AbstractArray) = ℒ(ŷ, reshape(permutedims(y, (1,3,2)),output_size, prod(size(y)[2:3])))
     
     opt = Flux.Optimiser(ClipValue(gradient_clipping), eval(optimizer)(η))
     ΔIT = 0
@@ -306,7 +276,7 @@ function experiment(args="" )
             break
         end
         for set in sets if set!= :train
-            evaluate_set(nn, eval_sets[set], metrics[set][:loss], metrics[set][:accuracy], set)
+            evaluate_set(nn, eval_sets[set], metrics[set][:loss], metrics[set][:accuracy], ℒ, set)
         end
         end
 
@@ -323,11 +293,15 @@ function experiment(args="" )
         end
     end
     if hpsearch
-        metrics[:result] = min_ℒ
+        # npzwrite(save_name*".npz", Dict("result"=>min_ℒ))
+        npzwrite(save_name*".npz", Dict("result"=>min_ℒ,
+        "valid_loss"=>metrics[:valid][:loss],"valid_acc"=>metrics[:valid][:accuracy]))
     else
-        metrics[:fname] = fname
+        npzwrite(save_name*".npz", Dict("valid_loss"=>metrics[:valid][:loss],"valid_acc"=>metrics[:valid][:accuracy],
+        "test_loss"=>metrics[:test][:loss],"test_acc"=>metrics[:test][:accuracy]))
     end
-    npzwrite(save_name, metrics)
+    
+    return 
 end
 
 
