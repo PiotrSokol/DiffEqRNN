@@ -63,7 +63,7 @@ function get_network(alpha, architecture, initializer, input_size, hidden_size,o
     """
     ∂rnn = initializer == "limitcycle" || architecture == "LSTM" ? ∂rnncell(input_size, hidden_size) : ∂rnncell(input_size,hidden_size,Flux.glorot_uniform)
 
-    node = RNNODE(∂rnn, (0.f0, tsteps[end]), saveat=tsteps, preprocess=x-> Float32.(onehot(x, ntoken=input_size-1)) )
+    node = RNNODE(∂rnn, (0.f0, tsteps[end]), saveat=tsteps, preprocess=x-> FT.(onehot(x, ntoken=input_size-1)) )
 
     function interpolate(x)
         X = Zygote.ignore() do
@@ -193,15 +193,12 @@ function experiment(args="" )
     parsed = parse_args(s;as_symbols=true)
     for (k,v) in parsed
         myexpression = k == :optimizer ? :(OPT = $v) : :($(k) = $v)
-        println(myexpression)
         eval(myexpression)
     end
     α = alpha
     η = lr
-    # args = Args(; kw...)
-    # @unpack architecture, batchsize, hidden_size, input_size, output_size, max_epochs, data_dir, save_dir, factor, optimizer, hpsearch, gradient_clipping, alpha, cuda, python_code_dir, patience, min_lag, max_lag, time_interval, dataset, initializer, save_name = args
-    
     optimizer = Symbol(OPT)
+    Random.seed!(_seed)
 
     if cuda
         try 

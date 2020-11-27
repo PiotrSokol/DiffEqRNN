@@ -33,12 +33,7 @@ function loadmnist(batchsize = bs, train_split = 1. - 1/60)
     y_data = onehot(labels_raw)
     (x_train, y_train), (x_test, y_test) = stratifiedobs((x_data, y_data),
                                                          p = train_split)
-    return (
-        # Use Flux's DataLoader to automatically minibatch and shuffle the data
-        DataLoader(gpu.(collect.((x_train, y_train))); batchsize = batchsize,
-                   shuffle = true),
-        # Don't shuffle the test data
-        DataLoader(gpu.(collect.((x_test, y_test))); batchsize = batchsize,
-                   shuffle = false)
-    )
+    return ( DataLoader(device.(collect.((x_train, y_train))); batchsize = batchsize, shuffle = true),
+        DataLoader(device.(collect.((x_test, y_test))); batchsize = batchsize,
+                   shuffle = false) )
 end
