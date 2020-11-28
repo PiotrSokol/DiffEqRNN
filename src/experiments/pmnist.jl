@@ -77,7 +77,7 @@ function get_network(alpha, architecture, initializer, isize, hsize,osize, tstep
             permutedims(x) |> interpolation
         end
     end
-    return Chain( interpolate, node, x->x(tsteps[end]), Dense(hsize, osize) )
+    return Chain( interpolate, node, Array, x-> x[:,:,end], Dense(hsize, osize) )
 end
 
 classify(x) = argmax.(eachcol(x))
