@@ -7,6 +7,23 @@
         {
             "type": "julia",
             "request": "launch",
+            "name": "Launch pmnist",
+            "program": "${workspaceFolder}/src/experiments/pmnist.jl",
+            "stopOnEntry": false
+        },
+        {
+            "type": "julia",
+            "request": "launch",
+            "name": "pMNIST",
+            "program": "trsokol/Documents/RNNODE.jl/src/experiments/pmnist.jl",
+            "stopOnEntry": false,
+            "cwd": "${workspaceFolder}",
+            "juliaEnv": "${command:activeJuliaEnvironment}"
+        },
+    
+        {
+            "type": "julia",
+            "request": "launch",
             "name": "Run active Julia file",
             "program": "${file}",
             "stopOnEntry": false,

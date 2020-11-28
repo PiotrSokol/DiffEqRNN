@@ -71,6 +71,7 @@ function get_network(alpha, architecture, initializer, isize, hsize,osize, tstep
 
     node = RNNODE(∂rnn, (0.f0, tsteps[end]), preprocess=x-> FT.(permutedims(x)), save_end=true, save_start=false, saveat=collect(0.f0:tsteps[end]) )
 
+    println(interpolation)
     function interpolate(x)
         X = Zygote.ignore() do
             permutedims(x) |> interpolation
@@ -149,8 +150,8 @@ function experiment(args="" )
             range_tester = (x->x ∈ ["limitcycle", "default", "eoc"])
         "--interpolation"
             arg_type = String
-            default = "PiecewiseConstant"
-            range_tester = (x -> x ∈ ["PiecewiseConstant"])
+            default = "CubicSplineFixedGrid"
+            range_tester = (x -> x ∈ ["CubicSplineFixedGrid","ConstantInterpolationFixedGrid","LinearInterpolationFixedGrid"])
         "--lr"
             arg_type = Float32
             default = Float32(1e-3)
@@ -219,7 +220,7 @@ function experiment(args="" )
         train_loader,valid_loader = get_data(bs, device, :valid)
         eval_sets = Dict(:valid=>valid_loader)
     else
-        train_loader,valid_loader, test_loader = get_data(bs, device, :train)
+        train_loader,valid_loader, test_loader = get_data(bs, device, :test)
         eval_sets = Dict(:valid=>valid_loader, :test=>test_loader)
         fname = save_name*".bson"
     end
@@ -236,7 +237,7 @@ function experiment(args="" )
 
     tsteps =  FT(784)
     
-    nn = get_network(alpha, architecture, initializer, isize, hsize,osize, tsteps, eval(Symbol(interpolation)))
+    nn = get_network(α, architecture, initializer, 1, hidden_size,10, tsteps, eval(Symbol(interpolation)))
     ℒ(ŷ,y) = logitcrossentropy(ŷ,y)
     
     opt = Flux.Optimiser(ClipValue(gradient_clipping), eval(optimizer)(η))
