@@ -56,28 +56,30 @@ function get_data(batchsize, device, set::Symbol; train_split=58999/60000)
     end
 end
 
-function get_network(alpha, architecture, initializer, isize, hsize,osize, tsteps, interpolation)
+function get_network(alpha, architecture, initializer, isize, hsize,osize, tsteps, interpolation, device)
     if architecture == "RNN_TANH"
-        ∂rnncell = ∂RNNCell
+        ∂rnncell = ∂RNN
     elseif architecture == "GRU"
-        ∂rnncell = ∂GRUCell
+        ∂rnncell = ∂GRU
     else
-        ∂rnncell = ∂LSTMCell
+        ∂rnncell = ∂LSTM
     end
     """
     Ternary op -> reads as if initializer == "limitcycle" or architecture == "LSTM" use two argument function dispatch, else additionally pass initializer variable
     """
     ∂rnn = initializer == "limitcycle" || architecture == "LSTM" ? ∂rnncell(isize, hsize) : ∂rnncell(isize,hsize,Flux.glorot_uniform)
-
-    node = RNNODE(∂rnn, (0.f0, tsteps[end]), preprocess=x-> FT.(permutedims(x)), save_end=true, save_start=false, saveat=collect(0.f0:tsteps[end]) )
-
-    println(interpolation)
+    
+    ∂rnn = device(∂rnn)
+    # u₀ = 2rand(FT, hsize ,1).-1 |> device
+    node = RNNODE(∂rnn, (0.f0, tsteps[end]), preprocess=x-> FT.(permutedims(x)), save_end=true, save_start=false, saveat=collect(0.f0:tsteps[end])) |> device
+    classifier = Dense(hsize, osize) |> device
+    ToAbstractArray = device == gpu  ? CuArray : Array
     function interpolate(x)
         X = Zygote.ignore() do
             permutedims(x) |> interpolation
         end
     end
-    return Chain( interpolate, node, Array, x-> x[:,:,end], Dense(hsize, osize) )
+    return Chain( interpolate, node, ToAbstractArray, x-> x[:,:,end],  classifier) |> device
 end
 
 classify(x) = argmax.(eachcol(x))
@@ -237,7 +239,7 @@ function experiment(args="" )
 
     tsteps =  FT(784)
     
-    nn = get_network(α, architecture, initializer, 1, hidden_size,10, tsteps, eval(Symbol(interpolation)))
+    nn = get_network(α, architecture, initializer, 1, hidden_size,10, tsteps, eval(Symbol(interpolation)), device)
     ℒ(ŷ,y) = logitcrossentropy(ŷ,y)
     
     opt = Flux.Optimiser(ClipValue(gradient_clipping), eval(optimizer)(η))

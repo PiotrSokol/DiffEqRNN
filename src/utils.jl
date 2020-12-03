@@ -22,3 +22,5 @@ end
 ##
 orthogonal_init(dims...;kwargs...) = orthogonal_init(Random.GLOBAL_RNG, dims...; kwargs...)
 orthogonal_init(rng::AbstractRNG; kwargs...) = (dims...; kwargs...) -> orthogonal_init(rng, dims...; kwargs...)
+
+state0_init(dims...;kwargs...) = 2rand(Float32, dims...).-1
