@@ -5,50 +5,53 @@ using DifferentialEquations, DiffEqCallbacks
 import OrdinaryDiffEq: ODEFunction, ODEProblem, solve
 import DiffEqSensitivity: InterpolatingAdjoint, ZygoteVJP
 
-struct RNNODE{M<:AbstractRNNDELayer,P,RE,T,A,K,VM,I} <: NeuralDELayer
+struct RNNODE{M<:AbstractRNNDELayer,P,RE,T,A,K,I} <: NeuralDELayer
     model::M
     p::P
     re::RE
     tspan::T
     args::A
     kwargs::K
-    u₀::VM
     in::I
     hidden::I
     preprocess
 
-    function RNNODE(model,tspan, args...;p = nothing, u₀ = nothing, preprocess= identity, kwargs...)
+    function RNNODE(model,tspan, args...;p = nothing, preprocess= identity, kwargs...)
         _p,re = Flux.destructure(model)
         nhidden = size(model.Wᵣ)[2]
         nin = size(model.Wᵢ)[2]
         if isnothing(p)
             p = _p
         end
-        if isnothing(u₀)
-            u₀ = 2rand(eltype(model.Wᵣ), nhidden ,1).-1  # code adapted to sigmoidal (tanh) RNNs -> for this reason u₀ ~ Unif over the [-1, 1] hypercube
+
         new{typeof(model),typeof(p),typeof(re),
-            typeof(tspan),typeof(args),typeof(kwargs),typeof(u₀),
+            typeof(tspan),typeof(args),typeof(kwargs),
             typeof(nin)}(
-            model,p,re,tspan,args,kwargs,u₀,nin,
+            model,p,re,tspan,args,kwargs,nin,
             nhidden, preprocess)
-        end
     end
-    function RNNODE(model::∂LSTMCell,tspan, args...;p = nothing, u₀ = nothing, preprocess=identity, kwargs...)
+    function RNNODE(model::∂LSTMCell,tspan, args...;p = nothing, preprocess=identity, kwargs...)
         _p,re = Flux.destructure(model)
         nhidden = size(model.Wᵢ)[1]÷2
         nin = size(model.Wᵢ)[2]
         if isnothing(p)
             p = _p
         end
-        if isnothing(u₀)
-            u₀ = 2rand(eltype(model.Wᵣ), nhidden ,1).-1  # code adapted to sigmoidal (tanh) RNNs -> for this reason u₀ ~ Unif over the [-1, 1] hypercube
+
         new{typeof(model),typeof(p),typeof(re),
-            typeof(tspan),typeof(args),typeof(kwargs),typeof(u₀),
+            typeof(tspan),typeof(args),typeof(kwargs),
             typeof(nin)}(
-            model,p,re,tspan,args,kwargs,u₀,nin,
+            model,p,re,tspan,args,kwargs,nin,
             nhidden, preprocess)
-        end
     end
+end
+
+function Base.getproperty(n::RNNODE{<:AbstractRNNDELayer}, sym::Symbol)
+  if sym === :u₀
+    return getfield(n.model, sym)
+  else
+    return getfield(m, sym)
+  end
 end
 
 function (n::RNNODE)(X::T; u₀=nothing, p=n.p) where {T<:Union{CubicSpline,CubicSplineFixedGrid}}
@@ -80,7 +83,7 @@ end
 """
 RNNODE with no input x defines an IVP for a homogenous system
 """
-function (n::RNNODE)(u₀; p=n.p)
+function (n::RNNODE)(u₀::AbstractVecOrMat{<:Number}; p=n.p)
     dudt_(u,p,t) = n.re(p)(u, zeros(eltype(u₀), n.in, 1) )
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)

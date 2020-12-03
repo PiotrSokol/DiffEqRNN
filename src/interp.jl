@@ -1,6 +1,7 @@
 import DataInterpolations: munge_data, AbstractInterpolation, LinearInterpolation, CubicSpline, ConstantInterpolation
 import LinearAlgebra:Tridiagonal
 import Zygote:ignore
+using CUDA
 
 # Cubic Spline Interpolation
 struct CubicSplineFixedGrid{uType,tType,RangeType,zType,FT,T} <: AbstractInterpolation{FT,T}
@@ -17,7 +18,7 @@ function CubicSplineFixedGrid(u::AV,t₀::T=0,t₁::T=length(u)-1,Δt::T=1) wher
   @assert ~any(ismissing, u)
   n = length(u) - 1
   @assert length(t₀:Δt:t₁-Δt) == n
-  h = vcat( zero(eltype(u)), ones(eltype(u),n), zero(eltype(u)))
+  h = vcat( zero(eltype(u)), Δt*ones(eltype(u),n), zero(eltype(u)))
   dl = h[2:n+1]
   d_tmp = 2 .* (h[1:n+1] .+ h[2:n+2])
   du = h[2:n+1]
@@ -31,7 +32,7 @@ function CubicSplineFixedGrid(U::AV,t₀::T=0,t₁::T=size(U,2)-1,Δt::T=1) wher
   @assert ~any(ismissing, U)
   n = size(U,2) - 1
   @assert length(t₀:Δt:t₁-Δt) == n
-  h = vcat( zeros(eltype(U)), ones(eltype(U),n), zeros(eltype(U)))
+  h = vcat( zeros(eltype(U)), Δt*ones(eltype(U),n), zeros(eltype(U)))
   du = dl = copy(h[2:n+1])
   d_tmp = 2 .* (h[1:n+1] .+ h[2:n+2])
 
@@ -41,10 +42,23 @@ function CubicSplineFixedGrid(U::AV,t₀::T=0,t₁::T=size(U,2)-1,Δt::T=1) wher
   CubicSplineFixedGrid{true}(U,t₀,t₁,Δt,z)
 end
 
+function CubicSplineFixedGrid(U::CuArray{T2}, t₀::T=0, t₁::T=size(U,2)-1,Δt::T=1) where {T<:Number,T2<:Number}
+  @assert ~any(ismissing, U)
+  n = size(U,2) - 1
+  @assert length(t₀:Δt:t₁-Δt) == n
+  h = vcat( zeros(eltype(U)), Δt*ones(eltype(U),n), zeros(eltype(U)))
+  du = dl = copy(h[2:n+1])
+  d_tmp = 2 .* (h[1:n+1] .+ h[2:n+2])
+
+  tA = Tridiagonal(dl,d_tmp,du) |> CuArray
+  d = hcat(CUDA.zeros(eltype(U), size(U)[1]),  6diff(diff(U, dims=2), dims=2), CUDA.zeros(eltype(U), size(U)[1]) )
+  z = tA\d'
+  CubicSplineFixedGrid{true}(U,t₀,t₁,Δt,z)
+end
 function (A::CubicSplineFixedGrid{<:AbstractVector{<:Number}})(t::Number)
-  re = t%A.Δt
+  re = eltype(A.u)(t%A.Δt)
   re /=A.Δt
-  i = floor(Int64,t/A.Δt)
+  i = floor(Int32,t/A.Δt + A.Δt)
   i == i >= length(A.t) ? i = length(A.t) - 1 : nothing
   i == 0 ? i += 1 : nothing
   z(i) = A.z[i]
@@ -54,11 +68,26 @@ function (A::CubicSplineFixedGrid{<:AbstractVector{<:Number}})(t::Number)
   D = (u(i) .- z(i)./6).*(A.Δt - re)
   I + C + D
 end
+function (A::CubicSplineFixedGrid{<:CuArray{<:Number}})(t::Number)
+  re = eltype(A.u)(t%A.Δt)
+  re /=A.Δt
+  i = floor(Int,t/A.Δt + A.Δt)
+  i == i >= length(A.t) ? i = length(A.t) - 1 : nothing
+  i == 0 ? i += 1 : nothing
+  z⁺ = A.z[i+1,:]
+  z = A.z[i,:]
+  u⁺ = A.u[:,i+1]
+  u = A.u[:,i]
+  I = z .* (A.Δt - re)^3 /6 .+ z⁺ .* (re)^3 /6
+  C = (u⁺ .- z⁺./6).*(re)
+  D = (u .- z./6).*(A.Δt - re)
+  I + C + D
+end
 
 function (A::CubicSplineFixedGrid{<:AbstractMatrix{<:Number}})(t::Number)
-  re = t%A.Δt
+  re = eltype(A.u)(t%A.Δt)
   re /=A.Δt
-  i = floor(Int64,t/A.Δt)
+  i = floor(Int32,t/A.Δt + A.Δt)
   i == i >= length(A.t) ? i = length(A.t) - 1 : nothing
   i == 0 ? i += 1 : nothing
   u(i) = view(A.u, :,i)
@@ -71,38 +100,34 @@ end
 
 
 function LinearInterpolationFixedGrid(u::AV,t₀::T=0,t₁::T=length(u),Δt::T=1) where {T<:Number,AV<:AbstractVector{<:Number}}
-    t₀,t₁,Δt = promote(t₀,t₁,Δt)
     n = length(u)
     @assert length(t₀:Δt:t₁-Δt) == n
-    t = collect(t₀:Δt:t₁-Δt)
-    u, t = munge_data(u, t)
+    t = collect(eltype(u),t₀:Δt:t₁-Δt)
+    # u, t = munge_data(u, t)
     return LinearInterpolation{true}(u,t)
 end
 
 function LinearInterpolationFixedGrid(U::AV,t₀::T=0,t₁::T=size(U,2),Δt::T=1) where {T<:Number,AV<:AbstractMatrix{<:Number}}
-    t₀,t₁,Δt = promote(t₀,t₁,Δt)
     n = size(U,2) 
     @assert length(t₀:Δt:t₁-Δt) == n
-    t = collect(t₀:Δt:t₁-Δt)
-    u, t = munge_data(U, t)
+    t = collect(eltype(U),t₀:Δt:t₁-Δt)
+    # u, t = munge_data(U, t)
     return LinearInterpolation{true}(U,t)
 end
 
 function ConstantInterpolationFixedGrid(u::AV,t₀::T=0,t₁::T=length(u),Δt::T=1) where {T<:Number,AV<:AbstractVector{<:Number}}
-    t₀,t₁,Δt = promote(t₀,t₁,Δt)
     n = length(u)
     @assert length(t₀:Δt:t₁-Δt) == n
     t = collect(t₀:Δt:t₁-Δt)
-    u, t = munge_data(u, t)
+    # u, t = munge_data(u, t)
     return ConstantInterpolation{true}(u,t,:left)
 end
 
 function ConstantInterpolationFixedGrid(U::AV,t₀::T=0,t₁::T=size(U,2),Δt::T=1) where {T<:Number,AV<:AbstractMatrix{<:Number}}
-    t₀,t₁,Δt = promote(t₀,t₁,Δt)
     n = size(U,2)
     @assert length(t₀:Δt:t₁-Δt) == n
     t = collect(t₀:Δt:t₁-Δt)
-    u, t = munge_data(U, t)
+    # u, t = munge_data(U, t)
     return ConstantInterpolation{true}(U,t,:left)
 end
 
@@ -128,7 +153,6 @@ struct nograd{T}
         new{typeof(interp)}(interp,eltype(interp.u),collect(interp.t),f)
     end
 end
-
 
 function (n::nograd{<:UnivInpt})(t)
  x = ignore() do
