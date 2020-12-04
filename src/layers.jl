@@ -1,4 +1,4 @@
-include("/Users/piotrsokol/Documents/RNNODE.jl/src/utils.jl")
+include("utils.jl")
 abstract type AbstractRNNDELayer <: Function end
 using Flux
 using Base
@@ -22,14 +22,14 @@ function ∂RNNCell(in::Integer, out::Integer; σ = tanh,
       Wᵣ = initWᵣ(out,out)
       b = initb(out)
       u₀ = state0_init(out,1)
-      ∂RNNCell(σ,Wᵢ,Wᵣ,b)
+      ∂RNNCell(σ,Wᵢ,Wᵣ,b,u₀)
 end
 function ∂RNNCell(in::Integer, out::Integer, init)
       Wᵢ = init(out,in)
       Wᵣ = init(out,out)
       b = init(out)
       u₀ = Flux.zeros(out,1)
-      ∂RNNCell(σ,Wᵢ,Wᵣ,b)
+      ∂RNNCell(σ,Wᵢ,Wᵣ,b,u₀)
 end
 
 function (m::∂RNNCell)(h, x)
@@ -69,7 +69,7 @@ function ∂GRUCell(in::Integer, out::Integer, init)
   Wᵣ = vcat( init(2*out,out), init(out,out) )
   b = init(out * 3)
   u₀ = Flux.zeros(out,1)
-  ∂GRUCell(Wᵢ,Wᵣ,b)
+  ∂GRUCell(Wᵢ,Wᵣ,b,u₀)
 end
 function (m::∂GRUCell)(h, x)
   b, o = m.b, size(h, 1)
