@@ -246,7 +246,6 @@ function Base.rpad(v::AbstractMatrix, n::Integer, p; dims)
   ds = Tuple(ds)
   cat(v, fill(p, ds), dims=dims)
 end
-# Base.rpad(v::AbstractMatrix, n::Integer, p, dims=2) = cat(v, fill(p, max(n-size(v,dims) ) ), dims=dims)
 
 function DataInterpolations.CubicSpline(u::U,t::T) where {U<:Vector{<:AbstractVector{<:Number}},T<:Vector{<:AbstractVector{<:Number}}}
     @assert length.(t) == length.(u)
@@ -259,8 +258,7 @@ function DataInterpolations.CubicSpline(u::U,t::T) where {U<:Vector{<:AbstractVe
     d_tmp =2(Base.getindex.(h,UnitRange{Int}.(Ref(1),n.+1)) .+ Base.getindex.(h,UnitRange{Int}.(Ref(2),n.+2)))
     tA = Tridiagonal.(dl,d_tmp, dl)
     tA = TridiagonalGPUorCPU.(tA)
-    d = similar.(u)
-    fill!.(d,eltype(u|>eltype)(0))
+    d = zero.(u)
     left(A) = Base.getindex.(A,UnitRange{Int}.(Ref(2),n))
     right(A) = Base.getindex.(A,UnitRange{Int}.(Ref(1),n.-1))
     tmp_left = 6left(diff.(u))
