@@ -1,12 +1,8 @@
-include("utils.jl")
 abstract type AbstractRNNDELayer <: Function end
-using Flux
-using Base
-import Flux: functor, gate
-import Flux: kaiming_normal, glorot_uniform
-const ℕ = kaiming_normal
 """
-Vanilla RNN
+Continuous time vanilla RNN.
+
+Derived assuming the standard RNN corresponds to a forward Euler discretization with Δt = 1.
 """
 struct ∂RNNCell{F,A,V,S} <:AbstractRNNDELayer
   σ::F
@@ -17,7 +13,7 @@ struct ∂RNNCell{F,A,V,S} <:AbstractRNNDELayer
 end
 
 function ∂RNNCell(in::Integer, out::Integer; σ = tanh,
-      initWᵢ = ℕ, initWᵣ=limit_cycle, initb = Flux.zeros, inits=state0_init)
+      initWᵢ = kaiming_normal, initWᵣ=limit_cycle, initb = zeros, inits=state0_init)
       Wᵢ = initWᵢ(out,in)
       Wᵣ = initWᵣ(out,out)
       b = initb(out)
@@ -28,7 +24,7 @@ function ∂RNNCell(in::Integer, out::Integer, init)
       Wᵢ = init(out,in)
       Wᵣ = init(out,out)
       b = init(out)
-      u₀ = Flux.zeros(out,1)
+      u₀ = zeros(out,1)
       ∂RNNCell(σ,Wᵢ,Wᵣ,b,u₀)
 end
 
@@ -38,8 +34,8 @@ function (m::∂RNNCell)(h, x)
   return ḣ
 end
 
-Flux.@functor ∂RNNCell
-Flux.trainable(m::∂RNNCell) = (m.Wᵢ, m.Wᵣ, m.b,)
+@functor ∂RNNCell
+trainable(m::∂RNNCell) = (m.Wᵢ, m.Wᵣ, m.b,)
 
 function Base.show(io::IO, l::∂RNNCell)
   print(io, "∂RNNCell(", size(l.Wᵢ, 2), ", ", size(l.Wᵢ, 1))
@@ -49,7 +45,9 @@ end
 
 
 """
-GRU
+Continuous time Gated Recurrent Unit
+
+Derived assuming the standard GRU corresponds to a forward Euler discretization with Δt = 1.
 """
 struct ∂GRUCell{A,V,S} <:AbstractRNNDELayer
   Wᵢ::A
@@ -57,7 +55,7 @@ struct ∂GRUCell{A,V,S} <:AbstractRNNDELayer
   b::V
   u₀::S
 end
-function ∂GRUCell(in::Integer, out::Integer; initWᵢ = ℕ, initWᵣ = (dims...)  -> limit_cycle(dims... ,σ=3.0f0), initWᵣᵤ = Flux.zeros, initb = Flux.zeros, inits= init=state0_init)
+function ∂GRUCell(in::Integer, out::Integer; initWᵢ = kaiming_normal, initWᵣ = (dims...)  -> limit_cycle(dims... ,σ=3.0f0), initWᵣᵤ = zeros, initb = zeros, inits= init=state0_init)
   Wᵢ=initWᵢ(out * 3, in)
   Wᵣ = vcat( initWᵣᵤ(2*out,out), initWᵣ(out,out) )
   b = initb(out * 3)
@@ -68,7 +66,7 @@ function ∂GRUCell(in::Integer, out::Integer, init)
   Wᵢ=init(out * 3, in)
   Wᵣ = vcat( init(2*out,out), init(out,out) )
   b = init(out * 3)
-  u₀ = Flux.zeros(out,1)
+  u₀ = state0_init(out,1)
   ∂GRUCell(Wᵢ,Wᵣ,b,u₀)
 end
 function (m::∂GRUCell)(h, x)
@@ -81,14 +79,16 @@ function (m::∂GRUCell)(h, x)
   return ḣ
 end
 
-Flux.@functor ∂GRUCell
-Flux.trainable(m::∂GRUCell) = (m.Wᵢ, m.Wᵣ, m.b,)
+@functor ∂GRUCell
+trainable(m::∂GRUCell) = (m.Wᵢ, m.Wᵣ, m.b,)
 
 Base.show(io::IO, l::∂GRUCell) =
   print(io, "∂GRUCell(", size(l.Wᵢ, 2), ", ", size(l.Wᵢ, 1)÷3, ")")
 
 """
 Continuous time LSTM
+
+Derived assuming the standard GRU corresponds to a forward Euler discretization with Δt = 1.
 """
 struct ∂LSTMCell{A,V,S} <:AbstractRNNDELayer
   Wᵢ::A
@@ -99,7 +99,7 @@ end
 
 function ∂LSTMCell(in::Integer, out::Integer;
                   init = glorot_uniform,
-                  initb = zeros, inits = Flux.zeros)
+                  initb = zeros, inits = state0_init)
   cell = ∂LSTMCell(init(out * 4, in), init(out * 4, out), initb(out * 4),
                     inits(2out,1))
   cell.b[gate(out, 2)] .= 2
@@ -119,8 +119,8 @@ function (m::∂LSTMCell)(hc, x)
   return vcat(ḣ, ċ)
 end
 
-Flux.@functor ∂LSTMCell
-Flux.trainable(m::∂LSTMCell) = (m.Wᵢ, m.Wᵣ, m.b,)
+@functor ∂LSTMCell
+trainable(m::∂LSTMCell) = (m.Wᵢ, m.Wᵣ, m.b,)
 
 Base.show(io::IO, l::∂LSTMCell) =
   print(io, "∂LSTMCell(", size(l.Wᵢ, 2), ", ", size(l.Wᵢ, 1)÷4, ")")

@@ -1,12 +1,9 @@
-include("interp.jl")
-include("layers.jl")
-import DiffEqFlux:NeuralDELayer, basic_tgrad
-using DifferentialEquations, DiffEqCallbacks
-import OrdinaryDiffEq: ODEFunction, ODEProblem, solve
-import DiffEqSensitivity: InterpolatingAdjoint, ZygoteVJP
-
+"""
+Redefining destructure/_restructure to handle additional arguments.
+From https://github.com/FluxML/Flux.jl/pull/1353#issue-503431890
+"""
 function destructure(m; cache = IdDict())
-  xs = Zygote.Buffer([])
+  xs = Buffer([])
   fmap(m) do x
     if x isa AbstractArray
       push!(xs, x)
@@ -28,8 +25,6 @@ function _restructure(m, xs; cache = IdDict())
   end
 end
 
-# destructure = Flux.destructure
-
 struct RNNODE{M<:AbstractRNNDELayer,P,RE,T,A,K,I} <: NeuralDELayer
     model::M
     p::P
@@ -37,14 +32,16 @@ struct RNNODE{M<:AbstractRNNDELayer,P,RE,T,A,K,I} <: NeuralDELayer
     tspan::T
     args::A
     kwargs::K
+    sense
     in::I
     hidden::I
     preprocess
 
-    function RNNODE(model,tspan, args...;p = nothing, preprocess= identity, kwargs...)
+    function RNNODE(model,tspan, args...;p = nothing, preprocess = identity,
+        sense = InterpolatingAdjoint(autojacvec=ZygoteVJP()), kwargs...)
         _p,re = destructure(model)
-        nhidden = size(model.Wᵣ)[2]
-        nin = size(model.Wᵢ)[2]
+        nhidden = size(model.Wᵣ,2)
+        nin = size(model.Wᵢ,2)
         if isnothing(p)
             p = _p
         end
@@ -52,13 +49,13 @@ struct RNNODE{M<:AbstractRNNDELayer,P,RE,T,A,K,I} <: NeuralDELayer
         new{typeof(model),typeof(p),typeof(re),
             typeof(tspan),typeof(args),typeof(kwargs),
             typeof(nin)}(
-            model,p,re,tspan,args,kwargs,nin,
+            model,p,re,tspan,args,kwargs,sense,nin,
             nhidden, preprocess)
     end
-    function RNNODE(model::∂LSTMCell,tspan, args...;p = nothing, preprocess=identity, kwargs...)
+    function RNNODE(model::∂LSTMCell,tspan, args...;p = nothing, preprocess=identity, sense = InterpolatingAdjoint(autojacvec=ZygoteVJP()), kwargs...)
         _p,re = destructure(model)
-        nhidden = size(model.Wᵢ)[1]÷2
-        nin = size(model.Wᵢ)[2]
+        nhidden = size(model.Wᵢ,1)÷2
+        nin = size(model.Wᵢ,2)
         if isnothing(p)
             p = _p
         end
@@ -66,7 +63,7 @@ struct RNNODE{M<:AbstractRNNDELayer,P,RE,T,A,K,I} <: NeuralDELayer
         new{typeof(model),typeof(p),typeof(re),
             typeof(tspan),typeof(args),typeof(kwargs),
             typeof(nin)}(
-            model,p,re,tspan,args,kwargs,nin,
+            model,p,re,tspan,args,kwargs,sense,nin,
             nhidden, preprocess)
     end
 end
@@ -84,7 +81,7 @@ function Base.show(io::IO, l::RNNODE)
   print(io, ")")
 end
 
-function (n::RNNODE)(X::T; u₀=nothing, p=n.p) where {T<:Union{CubicSpline,CubicSplineFixedGrid}}
+function (n::RNNODE)(X::T; u₀=nothing, p=n.p) where {T<:Union{CubicSpline,CubicSplineRegularGrid}}
     x = nograd(X, f=n.preprocess)
     if isnothing(u₀)
         u₀ = repeat(n.u₀, 1, get_batchsize(x)) |> deepcopy
@@ -92,13 +89,12 @@ function (n::RNNODE)(X::T; u₀=nothing, p=n.p) where {T<:Union{CubicSpline,Cubi
     dudt_(u,p,t) = n.re(p)(u,x(t))
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
-    sense = InterpolatingAdjoint(autojacvec=ZygoteVJP())
-    solve(prob,n.args...;sense=sense, n.kwargs...)
+    solve(prob,n.args...;sense=n.sense, n.kwargs...)
 end
 """
 Because of the low-order smoothness of LinearInterpolation and ConstantInterpolation, we force the solver to restart at new each data
 """
-function (n::RNNODE)(X::T; u₀=nothing, p=n.p) where {T<:Union{LinearInterpolation,ConstantInterpolation}}
+function (n::RNNODE)(X::T; u₀=nothing, p=n.p) where {T<:Union{LinearInterpolation,LinearInterpolationRegularGrid,ConstantInterpolation}}
     x = nograd(X, f=n.preprocess)
     tstops = eltype(n.u₀).(collect(X.t))
     if isnothing(u₀)
@@ -107,8 +103,7 @@ function (n::RNNODE)(X::T; u₀=nothing, p=n.p) where {T<:Union{LinearInterpolat
     dudt_(u,p,t) = n.re(p)(u,x(t))
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
-    sense = InterpolatingAdjoint(autojacvec=ZygoteVJP())
-    solve(prob,n.args...;sense=sense, tstops=tstops, n.kwargs...)
+    solve(prob,n.args...;sense=n.sense, tstops=tstops, n.kwargs...)
 end
 """
 RNNODE with no input x defines an IVP for a homogenous system
@@ -117,13 +112,12 @@ function (n::RNNODE)(u₀::AbstractVecOrMat{<:Number}; p=n.p)
     dudt_(u,p,t) = n.re(p)(u, zeros(eltype(u₀), n.in, 1) )
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
-    sense = InterpolatingAdjoint(autojacvec=ZygoteVJP())
-    solve(prob,n.args...;sense=sense, n.kwargs...)
+    solve(prob,n.args...;sense=n.sense, n.kwargs...)
 end
 """
-Helper code for saving adjoint variables and doing "gradient clipping"
+Helper code for saving adjoint variables
 """
-function generate_adj_saving_callback(rnn::AbstractRNNDELayer, saveat, bs::Int;hidden::Int = size(rnn.Wᵣ)[2],f::Function = identity)
+function generate_adj_saving_callback(rnn::AbstractRNNDELayer, saveat, bs::Int;hidden::Int = rnn.hidden,f::Function = identity)
 
     saved_values = SavedValues(eltype(saveat), Array)
     function save_func(u,t,integrator)
