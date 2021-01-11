@@ -26,7 +26,7 @@ end
     cells = [∂RNNCell, ∂GRUCell, ∂LSTMCell]
     interpolators = [CubicSplineRegularGrid, LinearInterpolationRegularGrid, ConstantInterpolationRegularGrid]
 
-    for (cell, itp) ∈ product(cells, interpolators)
+    for (cell, itp) ∈ Iterators.product(cells, interpolators)
         X = itp(x)
         ∂nn = cell(1,2)
         tspan = Float32.([0, t₁])
@@ -46,7 +46,7 @@ end
     cells = [∂RNNCell, ∂GRUCell, ∂LSTMCell]
     interpolators = [CubicSplineRegularGrid, LinearInterpolationRegularGrid, ConstantInterpolationRegularGrid]
 
-    for (cell, itp) ∈ IterTools.product(cells, interpolators)
+    for (cell, itp) ∈ Iterators.product(cells, interpolators)
         X = itp(x)
         ∂nn = cell(1,2)
         tspan = Float32.([0, t₁])

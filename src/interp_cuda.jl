@@ -8,19 +8,18 @@ function CubicSplineRegularGrid(U::CuArray{T2}, t₀::T=0, t₁::T=size(U,2)-1,�
   d_tmp = 2 .* (h[1:n+1] .+ h[2:n+2])
 
   tA = convert(CuArray,Tridiagonal(dl,d_tmp,du))
-  d = hcat(CUDA.zeros(eltype(U), size(U)[1]),  6diff(diff(U, dims=2), dims=2), CUDA.zeros(eltype(U), size(U)[1]) )
-  z = tA\permutedims(d)
+  d = hcat(CUDA.zeros(eltype(U), size(U)[1]),  6diff(diff(U, dims=2), dims=2).\Δt, CUDA.zeros(eltype(U), size(U)[1]) )
+  z = tA\permutedims(d) |> permutedims
   CubicSplineRegularGrid{true}(U,t₀,t₁,Δt,z)
 end
 
 function (A::CubicSplineRegularGrid{<:CuArray{<:Number}})(t::Number)
   re = eltype(A.u)(t%A.Δt)
-  re /=A.Δt
   i = floor(Int,t/A.Δt + 1)
   i == i >= length(A.t) ? i = length(A.t) - 1 : nothing
   i == 0 ? i += 1 : nothing
-  z⁺ = A.z[i+1,:]
-  z = A.z[i,:]
+  z⁺ = A.z[:,i+1]
+  z = A.z[:,i]
   u⁺ = A.u[:,i+1]
   u = A.u[:,i]
   Δt = A.Δt
@@ -33,12 +32,11 @@ end
 
 function derivative(A::CubicSplineRegularGrid{<:CuArray{<:Number}}, t::Number)
     re = t%A.Δt
-    re /=A.Δt
     i = floor(Int,t/A.Δt+ 1)
     i == i > length(A.t) ? i = length(A.t) - 1 : nothing
     i == 0 ? i += 1 : nothing
-    z⁺ = A.z[i+1,:]
-    z = A.z[i,:]
+    z⁺ = A.z[:,i+1]
+    z = A.z[:,i]
     u⁺ = A.u[:,i+1]
     u = A.u[:,i]
     Δt = A.Δt
