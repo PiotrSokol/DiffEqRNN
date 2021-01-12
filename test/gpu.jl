@@ -112,8 +112,8 @@ end
     for cell ∈ [∂RNNCell, ∂GRUCell, ∂LSTMCell] 
         ∂nn = cell(1,2) |> gpu
         tspan = Float32.([0, t₁])
-        tsteps = collect(tspan[1] : tspan[2]) |> gpu
-        node = RNNODE(∂nn, tspan, AutoTsit5(Rosenbrock23()), saveat=tsteps, preprocess=permutedims )
+        tsteps = collect(tspan[1] : tspan[2])
+        node = RNNODE(∂nn, tspan, AutoTsit5(Rosenbrock23()), saveat=tsteps)
         # reltol=1e-8,abstol=1e-8
         sol = node(node.u₀)
         @test sol.retcode == :Success
