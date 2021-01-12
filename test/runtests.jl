@@ -19,8 +19,10 @@ end
   include("rnn_ode.jl")
 end
 
-if Flux.use_cuda[]
-  include("gpu.jl")
-else
-  @warn "CUDA unavailable, not testing GPU support"
+@testset "CUDA" begin
+  if Flux.use_cuda[]
+    include("gpu.jl")
+  else
+    @warn "CUDA unavailable, not testing GPU support"
+  end
 end
