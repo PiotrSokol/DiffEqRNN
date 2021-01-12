@@ -4,7 +4,7 @@ using Random
 using Test
 using IterTools
 using Flux, DiffEqFlux
-
+using FiniteDifferences
 import CUDA
 CUDA.allowscalar(false)
 
@@ -26,27 +26,19 @@ end # interpolation
     ts = 784
     A = randn(Float32, ts)|> gpu
     τs = (ts-1)rand(100)
-    # v = CubicSplineRegularGrid(A)
     v′ = CubicSpline(A |> cpu ,collect(0:ts-1))
-    # @testset "1-D spline" begin
-    #   for τ ∈ τs
-    #     @test isapprox(v(τ), v′(τ))
-    #   end
-    # end
     v = CubicSplineRegularGrid(repeat(A, 1,bs)|>permutedims);
     @testset "n-D spline" begin
       for τ ∈ τs
         @test isapprox(v(τ), gpu([v′(τ) for i in 1:bs ]))
       end
-    
-    # v = CubicSplineRegularGrid(A,t₀=0,t₁=2ts-1,Δt=2)
-    # v′ = CubicSpline(A |> cpu ,collect(0:2:2ts-1))
-    # for τ ∈ τs
-    #   @test isapprox(v(τ), v′(τ))
-    # end
-    v = CubicSplineRegularGrid(repeat(A, 1,bs)|>permutedims,t₀=0,t₁=2ts-1,Δt=2)
-    for τ ∈ τs
-      @test isapprox(v(τ), gpu([v′(τ) for i in 1:bs ]))
+    end
+    v′ = CubicSpline(A |> cpu ,collect(0:2:2ts-1))
+    v = CubicSplineRegularGrid(repeat(A, 1,bs)|>permutedims,t₀=0,t₁=2ts-1,Δt=2);
+    @testset "batched spline" begin
+      for τ ∈ τs
+        @test isapprox(v(τ), gpu([v′(τ) for i in 1:bs ]))
+      end
     end
 end
 
@@ -71,7 +63,7 @@ end
     tmax = minimum(maximum.(times))
     τs = (tmax-1)rand(100)
     for τ ∈ τs
-      @test isapprox(X(τ), [x(τ) for x ∈ X1d],rtol=1e-3)
+      @test isapprox(X(τ), gpu([x(τ) for x ∈ X1d]),rtol=1e-3)
     end
 end
 
