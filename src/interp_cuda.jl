@@ -1,5 +1,5 @@
 using .CUDA
-function CubicSplineRegularGrid(U::CuArray{T2}, t₀::T=0, t₁::T=size(U,2)-1,Δt::T=1) where {T<:Number,T2<:Number}
+function CubicSplineRegularGrid(U::CuMatrix{T2}, t₀::T=0, t₁::T=size(U,2)-1,Δt::T=1) where {T<:Number,T2<:Number}
   @assert ~any(ismissing, U)
   n = size(U,2) - 1
   @assert length(t₀:Δt:t₁-Δt) == n
