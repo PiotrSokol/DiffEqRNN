@@ -1,5 +1,5 @@
 using .CUDA
-function CubicSplineRegularGrid(U::CuMatrix{T2}, t₀::T=0, t₁::T=size(U,2)-1,Δt::T=1) where {T<:Number,T2<:Number}
+function CubicSplineRegularGrid(U::CuMatrix{T2}; t₀::T=0, t₁::T=size(U,2)-1,Δt::T=1) where {T<:Number,T2<:Number}
   @assert ~any(ismissing, U)
   n = size(U,2) - 1
   @assert length(t₀:Δt:t₁-Δt) == n
@@ -8,7 +8,7 @@ function CubicSplineRegularGrid(U::CuMatrix{T2}, t₀::T=0, t₁::T=size(U,2)-1,
   d_tmp = 2 .* (h[1:n+1] .+ h[2:n+2])
 
   tA = convert(CuArray,Tridiagonal(dl,d_tmp,du))
-  d = hcat(CUDA.zeros(eltype(U), size(U)[1]),  6diff(diff(U, dims=2), dims=2).\Δt, CUDA.zeros(eltype(U), size(U)[1]) )
+  d = hcat(CUDA.zeros(eltype(U), size(U)[1]),  6diff(diff(U, dims=2), dims=2)./Δt, CUDA.zeros(eltype(U), size(U)[1]) )
   z = tA\permutedims(d) |> permutedims
   CubicSplineRegularGrid{true}(U,t₀,t₁,Δt,z)
 end

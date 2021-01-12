@@ -25,7 +25,7 @@ end # interpolation
     bs = 16
     ts = 784
     A = randn(Float32, ts)|> gpu
-    τs = (ts-1)rand(100)|> gpu
+    τs = (ts-1)rand(100)
     # v = CubicSplineRegularGrid(A)
     v′ = CubicSpline(A |> cpu ,collect(0:ts-1))
     # @testset "1-D spline" begin
@@ -33,12 +33,11 @@ end # interpolation
     #     @test isapprox(v(τ), v′(τ))
     #   end
     # end
-    v = CubicSplineRegularGrid(repeat(A, 1,bs)|>permutedims)
+    v = CubicSplineRegularGrid(repeat(A, 1,bs)|>permutedims);
     @testset "n-D spline" begin
       for τ ∈ τs
-        @test isapprox(v(τ)[1], v′(τ))
+        @test isapprox(v(τ), gpu([v′(τ) for i in 1:bs ]))
       end
-    end
     
     # v = CubicSplineRegularGrid(A,t₀=0,t₁=2ts-1,Δt=2)
     # v′ = CubicSpline(A |> cpu ,collect(0:2:2ts-1))
@@ -47,7 +46,7 @@ end # interpolation
     # end
     v = CubicSplineRegularGrid(repeat(A, 1,bs)|>permutedims,t₀=0,t₁=2ts-1,Δt=2)
     for τ ∈ τs
-      @test isapprox(v(τ)[1], v′(τ))
+      @test isapprox(v(τ), gpu([v′(τ) for i in 1:bs ]))
     end
 end
 
