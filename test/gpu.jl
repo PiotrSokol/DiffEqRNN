@@ -8,7 +8,7 @@ using FiniteDifferences
 using CUDA
 CUDA.allowscalar(false)
 
-@testset "Checking interpolation: grid points" begin
+@testset "Checking interpolation with CUDA: grid points" begin
     Random.seed!(0)
     bs = 16
     ts = 784
@@ -20,7 +20,7 @@ CUDA.allowscalar(false)
     end
 end # interpolation
 
-@testset "Checking interpolation: random points" begin
+@testset "Checking interpolation with CUDA: random points" begin
     Random.seed!(0)
     bs = 16
     ts = 784
@@ -42,7 +42,7 @@ end # interpolation
     end
 end
 
-@testset "Checking batched CubicSpline" begin
+@testset "Checking batched CubicSpline with CUDA" begin
     Random.seed!(0)
     t₁ = 10
     bs = 7
@@ -68,7 +68,7 @@ end
 end
 
 
-@testset "Derivative tests" begin
+@testset "Derivative tests  with CUDA" begin
     Random.seed!(0)
     bs = 16
     ts = 784
@@ -82,7 +82,7 @@ end
       end
 end 
 
-@testset "Batched derivative tests" begin
+@testset "Batched derivative tests  with CUDA" begin
     Random.seed!(0)
     t₁ = 10
     bs = 7
@@ -107,7 +107,7 @@ end
     end
 end
 
-@testset "Checking initial value problem for RNN ODE's" begin
+@testset "Checking initial value problem for RNN ODE's  with CUDA" begin
     t₁ = 100
     for cell ∈ [∂RNNCell, ∂GRUCell, ∂LSTMCell] 
         ∂nn = cell(1,2) |> gpu
@@ -120,7 +120,7 @@ end
     end
 end
 
-@testset "Checking inhomogeneous solution: forward" begin
+@testset "Checking inhomogeneous solution with CUDA: forward" begin
     Random.seed!(0)
     t₁ = 100
     bs = 7
@@ -140,7 +140,7 @@ end
     end
 end
 
-@testset "Checking inhomogeneous solution: optimization" begin
+@testset "Checking inhomogeneous solution with CUDA: optimization" begin
     Random.seed!(0)
     t₁ = 10
     bs = 7
