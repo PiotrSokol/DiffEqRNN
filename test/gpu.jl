@@ -27,7 +27,7 @@ end # interpolation
     A = randn(Float32, ts)|> gpu
     τs = (ts-1)rand(100)|> gpu
     v = CubicSplineRegularGrid(A)
-    v′ = CubicSpline(A,collect(0:ts-1))
+    v′ = CubicSpline(A |> cpu ,collect(0:ts-1))
     @testset "1-D spline" begin
       for τ ∈ τs
         @test isapprox(v(τ), v′(τ))
@@ -41,7 +41,7 @@ end # interpolation
     end
     
     v = CubicSplineRegularGrid(A,t₀=0,t₁=2ts-1,Δt=2)
-    v′ = CubicSpline(A,collect(0:2:2ts-1))
+    v′ = CubicSpline(A |> cpu ,collect(0:2:2ts-1))
     for τ ∈ τs
       @test isapprox(v(τ), v′(τ))
     end
@@ -68,7 +68,7 @@ end
     times = gpu.(times)
 
     X = CubicSpline(x, times)
-    X1d = CubicSpline.(x,times)
+    X1d = CubicSpline.(cpu.(x),cpu.(times))
     tmax = minimum(maximum.(times))
     τs = (tmax-1)rand(100)
     for τ ∈ τs
@@ -110,7 +110,7 @@ end
     tmax = minimum(maximum.(times))
     τs = (tmax-1)rand(100)
     X = CubicSpline(x, times)
-    X1d = CubicSpline.(x, times)
+    X1d = CubicSpline.(cpu.(x),cpu.(times))
     for τ ∈ τs
       @test isapprox(central_fdm(5, 1)(t->X(t), τ), derivative(X,τ), rtol=1e-3)
     end
@@ -137,7 +137,7 @@ end
     cells = [∂RNNCell, ∂GRUCell, ∂LSTMCell]
     interpolators = [CubicSplineRegularGrid, LinearInterpolationRegularGrid, ConstantInterpolationRegularGrid]
 
-    for (cell, itp) ∈ product(cells, interpolators)
+    for (cell, itp) ∈ Iterators.product(cells, interpolators)
         X = itp(x)
         ∂nn = cell(1,2) |> gpu
         tspan = Float32.([0, t₁])
@@ -157,7 +157,7 @@ end
     cells = [∂RNNCell, ∂GRUCell, ∂LSTMCell]
     interpolators = [CubicSplineRegularGrid, LinearInterpolationRegularGrid, ConstantInterpolationRegularGrid]
 
-    for (cell, itp) ∈ IterTools.product(cells, interpolators)
+    for (cell, itp) ∈ Iterators.product(cells, interpolators)
         X = itp(x)
         ∂nn = cell(1,2) |> gpu
         tspan = Float32.([0, t₁])
