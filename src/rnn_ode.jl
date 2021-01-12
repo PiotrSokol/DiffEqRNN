@@ -109,7 +109,8 @@ end
 RNNODE with no input x defines an IVP for a homogenous system
 """
 function (n::RNNODE)(u₀::AbstractVecOrMat{<:Number}; p=n.p)
-    dudt_(u,p,t) = n.re(p)(u, zeros(eltype(u₀), n.in, 1) )
+    x = fill!(similar(node.u₀, n.in,1,), zero(eltype(u₀)))
+    dudt_(u,p,t) = n.re(p)(u, x )
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
     solve(prob,n.args...;sense=n.sense, n.kwargs...)

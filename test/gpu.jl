@@ -5,7 +5,7 @@ using Test
 using IterTools
 using Flux, DiffEqFlux
 using FiniteDifferences
-import CUDA
+using CUDA
 CUDA.allowscalar(false)
 
 @testset "Checking interpolation: grid points" begin
@@ -112,7 +112,7 @@ end
     for cell ∈ [∂RNNCell, ∂GRUCell, ∂LSTMCell] 
         ∂nn = cell(1,2) |> gpu
         tspan = Float32.([0, t₁])
-        tsteps = collect(tspan[1] : tspan[2])
+        tsteps = collect(tspan[1] : tspan[2]) |> gpu
         node = RNNODE(∂nn, tspan, AutoTsit5(Rosenbrock23()), saveat=tsteps, preprocess=permutedims )
         # reltol=1e-8,abstol=1e-8
         sol = node(node.u₀)
