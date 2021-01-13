@@ -141,7 +141,19 @@ function (n::nograd{<:MultivInpt})(t)
   end
 end
 
-function get_batchsize(n::nograd)
+function derivative(n::nograd{<:UnivInpt}, t)
+ x = ignore() do
+    derivative(n.interpolant, t) |> n.f
+  end
+end
+
+function derivative(n::nograd{<:MultivInpt}, t)
+ x = ignore() do
+    derivative(n.interpolant, t) |> n.f
+  end
+end
+
+function n_channels(n::nograd)
   size(n.interpolant.u,1)
 end
 """

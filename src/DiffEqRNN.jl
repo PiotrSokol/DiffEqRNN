@@ -25,8 +25,12 @@ export limit_cycle, orthogonal_init
 export ∂RNNCell, ∂GRUCell, ∂LSTMCell
 export CubicSplineRegularGrid, LinearInterpolationRegularGrid, ConstantInterpolationRegularGrid, derivative
 export CubicSpline
+
 include("rnn_ode.jl")
 export RNNODE, generate_adj_saving_callback
+
+include("neural_cde.jl")
+export NeuralCDE
 
 function __init__()
     @require CUDA="052768ef-5323-5732-b1bb-66c8b64840ba" begin

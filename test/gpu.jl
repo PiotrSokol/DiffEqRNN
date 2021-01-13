@@ -68,7 +68,7 @@ end
 end
 
 
-@testset "Derivative tests  with CUDA" begin
+@testset "Derivative tests with CUDA" begin
     Random.seed!(0)
     bs = 16
     ts = 784
@@ -82,7 +82,7 @@ end
       end
 end 
 
-@testset "Batched derivative tests  with CUDA" begin
+@testset "Batched derivative tests with CUDA" begin
     Random.seed!(0)
     t₁ = 10
     bs = 7
@@ -155,7 +155,7 @@ end
         tsteps = collect(tspan[1] : tspan[2])
         node = RNNODE(∂nn, tspan, AutoTsit5(Rosenbrock23()), reltol=1e-4,abstol=1e-4, saveat=tsteps, preprocess=permutedims )
         # reltol=1e-8,abstol=1e-8
-        predict_neuralode(p) = Array(node(X, p=p))
+        predict_neuralode(p) = gpu(node(X, p=p))
         function loss_neuralode(p)
             pred = predict_neuralode(p)
             loss = sum(abs2, pred .- 0.0)
