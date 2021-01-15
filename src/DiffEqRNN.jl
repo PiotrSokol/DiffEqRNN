@@ -1,7 +1,7 @@
 module DiffEqRNN
 
 using DataInterpolations
-import DataInterpolations: AbstractInterpolation, munge_data
+import DataInterpolations: AbstractInterpolation, munge_data, derivative
 import LinearAlgebra:Tridiagonal, qr, Diagonal
 import Zygote:ignore, Buffer
 import Functors:fmap

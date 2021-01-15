@@ -13,7 +13,7 @@ function CubicSplineRegularGrid(U::CuMatrix{T2}; t₀::T=0, t₁::T=size(U,2)-1,
   CubicSplineRegularGrid{true}(U,t₀,t₁,Δt,z)
 end
 
-function (A::CubicSplineRegularGrid{<:CuArray{<:Number}})(t::Number)
+function DataInterpolations._interpolate(A::CubicSplineRegularGrid{<:CuArray{<:Number}}, t::Number)
   re = eltype(A.u)(t%A.Δt)
   i = floor(Int,t/A.Δt + 1)
   i == i >= length(A.t) ? i = length(A.t) - 1 : nothing
@@ -30,7 +30,7 @@ function (A::CubicSplineRegularGrid{<:CuArray{<:Number}})(t::Number)
   I + C + D
 end
 
-function derivative(A::CubicSplineRegularGrid{<:CuArray{<:Number}}, t::Number)
+function DataInterpolations.derivative(A::CubicSplineRegularGrid{<:CuArray{<:Number}}, t::Number)
     re = t%A.Δt
     i = floor(Int,t/A.Δt+ 1)
     i == i > length(A.t) ? i = length(A.t) - 1 : nothing
@@ -48,7 +48,7 @@ function derivative(A::CubicSplineRegularGrid{<:CuArray{<:Number}}, t::Number)
 end
 TridiagonalGPUorCPU(a::Tridiagonal{T,N}) where{T,N<:CuVector} = convert(CuArray, a)
 
-function (A::CubicSpline{<:CuMatrix,<:CuMatrix})(t::Number)
+function DataInterpolations._interpolate(A::CubicSpline{<:CuMatrix,<:CuMatrix}, t::Number)
     i = min.(max.((sum(A.t.<t,dims=2)),1), sum(isfinite.(A.t), dims=2).-1) |> vec
     i⁺= vec(i.+1)
     i = CartesianIndex.(Base.OneTo(size(A.u,1)) |> cu, i)

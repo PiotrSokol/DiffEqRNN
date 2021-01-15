@@ -37,7 +37,7 @@ function CubicSplineRegularGrid(U::AV; t₀::T=0,t₁::T=size(U,2)-1,Δt::T=1) w
   CubicSplineRegularGrid{true}(U,t₀,t₁,Δt,z)
 end
 
-function (A::CubicSplineRegularGrid{<:AbstractVector{<:Number}})(t::Number)
+function DataInterpolations._interpolate(A::CubicSplineRegularGrid{<:AbstractVector{<:Number}},t::Number)
   re = eltype(A.u)(t%A.Δt)
   i = floor(Int32,t/A.Δt + 1)
   i == i >= length(A.t) ? i = length(A.t) - 1 : nothing
@@ -52,7 +52,7 @@ function (A::CubicSplineRegularGrid{<:AbstractVector{<:Number}})(t::Number)
   I + C + D
 end
 
-function (A::CubicSplineRegularGrid{<:AbstractMatrix{<:Number}})(t::Number)
+function DataInterpolations._interpolate(A::CubicSplineRegularGrid{<:AbstractMatrix{<:Number}},t::Number)
   re = eltype(A.u)(t%A.Δt)
   i = floor(Int32,t/A.Δt + 1)
   i == i >= length(A.t) ? i = length(A.t) - 1 : nothing
@@ -159,7 +159,7 @@ end
 """
 Fixes extrapolation issue -- jl prevents linear interpolation.
 """
-function (A::LinearInterpolationRegularGrid{<:AbstractVector{<:Number}})(t::Number)
+function DataInterpolations._interpolate(A::LinearInterpolationRegularGrid{<:AbstractVector{<:Number}}, t::Number)
   idx = findfirst(x->x>=t,A.t)
   idx == nothing ? idx = length(A.t) - 1 : idx -= 1
   idx == 0 ? idx += 1 : nothing
@@ -167,7 +167,7 @@ function (A::LinearInterpolationRegularGrid{<:AbstractVector{<:Number}})(t::Numb
   (1-θ)*A.u[idx] + θ*A.u[idx+1]
 end
 
-function (A::LinearInterpolationRegularGrid{<:AbstractMatrix{<:Number}})(t::Number)
+function DataInterpolations._interpolate(A::LinearInterpolationRegularGrid{<:AbstractMatrix{<:Number}}, t::Number)
   idx = findfirst(x->x>=t,A.t)
   idx == nothing ? idx = length(A.t) - 1 : idx -= 1
   idx == 0 ? idx += 1 : nothing
@@ -186,21 +186,21 @@ _nobs(n::T) where {T<:Union{ConstantInterpolation,LinearInterpolationRegularGrid
 
 
 
-function derivative(A::LinearInterpolationRegularGrid{<:AbstractVector{<:Number}}, t::Number)
+function DataInterpolations.derivative(A::LinearInterpolationRegularGrid{<:AbstractVector{<:Number}}, t::Number)
     idx = findfirst(x -> x >= t, A.t) - 1
     idx == 0 ? idx += 1 : nothing
     θ = 1 / (A.t[idx+1] - A.t[idx])
     (A.u[idx+1] - A.u[idx]) / (A.t[idx+1] - A.t[idx])
 end
 
-function derivative(A::LinearInterpolationRegularGrid{<:AbstractMatrix{<:Number}}, t::Number)
+function DataInterpolations.derivative(A::LinearInterpolationRegularGrid{<:AbstractMatrix{<:Number}}, t::Number)
     idx = findfirst(x -> x >= t, A.t) - 1
     idx == 0 ? idx += 1 : nothing
     θ = 1 / (A.t[idx+1] - A.t[idx])
     (A.u[:, idx+1] - A.u[:, idx]) / (A.t[idx+1] - A.t[idx])
 end
 
-function derivative(C::CubicSplineRegularGrid{<:AbstractVector{<:Number}}, t::Number)
+function DataInterpolations.derivative(C::CubicSplineRegularGrid{<:AbstractVector{<:Number}}, t::Number)
     re = t%C.Δt
     i = floor(Int,t/C.Δt + 1)
     dI = -3C.z[i] * (C.t[i + 1] - t)^2 /6C.Δt + 3C.z[i + 1] * (t - C.t[i])^2 /6C.Δt
@@ -209,7 +209,7 @@ function derivative(C::CubicSplineRegularGrid{<:AbstractVector{<:Number}}, t::Nu
     dI + dC + dD
 end
 
-function derivative(B::CubicSplineRegularGrid{<:AbstractMatrix{<:Number}}, t::Number)
+function DataInterpolations.derivative(B::CubicSplineRegularGrid{<:AbstractMatrix{<:Number}}, t::Number)
     re = t%B.Δt
     i = floor(Int,t/B.Δt + 1)
     i == i > length(B.t) ? i = length(B.t) - 1 : nothing
@@ -275,7 +275,7 @@ function DataInterpolations.CubicSpline(u::U,t::T) where {U<:Vector{<:AbstractVe
     CubicSpline{true}(u,t,h,z)
 end
 
-function (A::DataInterpolations.CubicSpline{<:AbstractMatrix,<:AbstractMatrix})(t::Number)
+function DataInterpolations._interpolate(A::DataInterpolations.CubicSpline{<:AbstractMatrix,<:AbstractMatrix}, t::Number)
     i = min.(max.((sum(A.t.<t,dims=2)),1), sum(isfinite.(A.t), dims=2).-1) |> vec
     i⁺= vec(i.+1)
     i = CartesianIndex.(Base.OneTo(size(A.u,1)), i)
@@ -285,7 +285,7 @@ function (A::DataInterpolations.CubicSpline{<:AbstractMatrix,<:AbstractMatrix})(
     D = (A.u[i]./A.h[i⁺] .- A.z[i].*A.h[i⁺]./6).*(A.t[i⁺] .- t)
     I .+ C .+ D
 end
-function (A::DataInterpolations.CubicSpline{<:AbstractMatrix,<:AbstractVector})(t::Number)
+function DataInterpolations._interpolate(A::DataInterpolations.CubicSpline{<:AbstractMatrix,<:AbstractVector},t::Number)
     T = reshape(A.t,1,:)
     i = min.(max.( sum(T.<t,dims=2),1), length(T).-1) |> vec
     i⁺= vec(i.+1)
@@ -295,17 +295,17 @@ function (A::DataInterpolations.CubicSpline{<:AbstractMatrix,<:AbstractVector})(
     I .+ C .+ D
 end
 
-function derivative(A::DataInterpolations.CubicSpline{<:AbstractVector{<:Number}}, t::Number)
-    i = findfirst(x -> x >= t, A.t)
-    i == nothing ? i = length(A.t) - 1 : i -= 1
-    i == 0 ? i += 1 : nothing
-    dI = -3A.z[i] * (A.t[i + 1] - t)^2 / (6A.h[i + 1]) + 3A.z[i + 1] * (t - A.t[i])^2 / (6A.h[i + 1])
-    dC = A.u[i + 1] / A.h[i + 1] - A.z[i + 1] * A.h[i + 1] / 6
-    dD = -(A.u[i] / A.h[i + 1] - A.z[i] * A.h[i + 1] / 6)
-    dI + dC + dD
-end
+# function DataInterpolations.derivative(A::DataInterpolations.CubicSpline{<:AbstractVector{<:Number}}, t::Number)
+#     i = findfirst(x -> x >= t, A.t)
+#     i == nothing ? i = length(A.t) - 1 : i -= 1
+#     i == 0 ? i += 1 : nothing
+#     dI = -3A.z[i] * (A.t[i + 1] - t)^2 / (6A.h[i + 1]) + 3A.z[i + 1] * (t - A.t[i])^2 / (6A.h[i + 1])
+#     dC = A.u[i + 1] / A.h[i + 1] - A.z[i + 1] * A.h[i + 1] / 6
+#     dD = -(A.u[i] / A.h[i + 1] - A.z[i] * A.h[i + 1] / 6)
+#     dI + dC + dD
+# end
 
-function derivative(A::DataInterpolations.CubicSpline{<:AbstractMatrix,<:AbstractMatrix}, t::Number)
+function DataInterpolations.derivative(A::DataInterpolations.CubicSpline{<:AbstractMatrix,<:AbstractMatrix}, t::Number)
     i = min.(max.((sum(A.t.<t,dims=2)),1), sum(isfinite.(A.t), dims=2).-1) |> vec
     i⁺= vec(i.+1)
     i = CartesianIndex.(Base.OneTo(size(A.u,1)), i)
@@ -313,5 +313,15 @@ function derivative(A::DataInterpolations.CubicSpline{<:AbstractMatrix,<:Abstrac
     dI = -3 .*A.z[i] .* (A.t[i⁺] .- t).^2 ./ 6A.h[i⁺] .+ 3 .*A.z[i⁺] .* (t .- A.t[i]).^2 ./ 6A.h[i⁺]
     dC = (A.u[i⁺]./A.h[i⁺] .- A.z[i⁺].*A.h[i⁺]./6)
     dD = -(A.u[i]./A.h[i⁺] .- A.z[i].*A.h[i⁺]./6)
+    dI .+ dC .+ dD
+end
+
+function DataInterpolations.derivative(A::DataInterpolations.CubicSpline{<:AbstractMatrix,<:AbstractVector},t::Number)
+    T = reshape(A.t,1,:)
+    i = min.(max.( sum(T.<t,dims=2),1), length(T).-1) |> vec
+    i⁺= vec(i.+1)
+    dI = -3 .* A.z[:,i] .* (T[:,i⁺] .- t).^2 ./ (6A.h[:,i⁺]) .+ 3 .* A.z[:,i⁺] .* (t .- T[:,i⁺]).^2 ./ (6A.h[:,i⁺])
+    dC = (A.u[:,i⁺]./A.h[:,i⁺] .- A.z[:,i⁺].*A.h[:,i⁺]./6)
+    dD = -(A.u[:,i]./A.h[:,i⁺] .- A.z[:,i].*A.h[:,i⁺]./6)
     dI .+ dC .+ dD
 end

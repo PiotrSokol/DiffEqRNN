@@ -1,4 +1,6 @@
 using DiffEqRNN
+using DataInterpolations
+using DataInterpolations:derivative
 using OrdinaryDiffEq
 using Random
 using Test
@@ -6,15 +8,19 @@ using IterTools
 using Flux, DiffEqFlux
 using DiffEqSensitivity
 using Zygote
-
+##
 @testset "Neural CDE test" begin
+    ##
     Random.seed!(2)
     t₁ = 10
     bs = 7
     inputsize = 3
     x = Float32(sqrt(1/2))randn(Float32, inputsize, bs, t₁)
     times = cumsum(randexp(Float32, 1, bs, t₁), dims=3)
-    x = cat(times,x,dims=1)
+    x2 = repeat(vcat([cos.(rand()*2π.+times[:,i,:]) for i in 1:size(times,2)]...),inner=(inputsize,1))
+    x2 = reshape(x2, size(x))
+    x = x2 .+ 0.1.*x
+    x = Float32.(cat(times,x,dims=1))
     x = reshape(x, :,t₁)
     times = reshape(times, :, t₁)
     x = [x[i,:] for i ∈ 1:size(x,1)]
@@ -23,66 +29,75 @@ using Zygote
     tmax = minimum(maximum.(times))
     X = CubicSpline(x, times)
     tmin = maximum(minimum.(times))
+    tmax = minimum(maximum.(times))
     tspan = (tmin,tmax)
-    tsteps = collect(tspan[1] : tspan[2])
-
+    ##
     inputsize+=1
     hiddensize = 16
     cde = Chain(
-    Dense(hiddensize, hiddensize, relu),
-    Dense(hiddensize, hiddensize*inputsize, x->tanh(x).-x),)
-    ncde = NeuralCDE(cde, tspan, inputsize, hiddensize, Tsit5(), reltol=1e-4,abstol=1e-4, preprocess=x->reshape(x,1, inputsize, :), sense = InterpolatingAdjoint(autojacvec=ZygoteVJP()) )
+    Dense(hiddensize, hiddensize, celu),
+    Dense(hiddensize, hiddensize*inputsize, tanh))
+    ncde = NeuralCDE(cde, tspan, inputsize, hiddensize, Tsit5(), reltol=1e-2,abstol=1e-2, preprocess=x->Float32.(reshape(x,1, inputsize, :)), sense = InterpolatingAdjoint(autojacvec=ZygoteVJP()) )
 
     sol = ncde(X)
+    ##
     predict_neuralcde(p) = Array(ncde(X, p=p))
     function loss_neuralcde(p)
         pred = predict_neuralcde(p)
         loss = sum(abs2, pred[:,:,end] .- 0.0)
         return loss
     end
+    loss_before = loss_neuralcde(ncde.p)
     optim = ADAM(0.05)
-    result_neuralode = DiffEqFlux.sciml_train(loss_neuralcde, ncde.p, optim, maxiters = 1)
-    @test result_neuralode.ls_success
+    result_neuralcde = DiffEqFlux.sciml_train(loss_neuralcde, ncde.p, optim, maxiters = 100)
+    @test result_neuralcde.minimum < loss_before
 end
 
 
 if Flux.use_cuda[]
     @testset "Neural CDE test" begin
-    Random.seed!(0)
-    t₁ = 10
-    bs = 7
-    inputsize = 3
-    x = Float32(sqrt(1/2))randn(Float32, inputsize, bs, t₁) |>gpu
-    times = cumsum(randexp(Float32, 1, bs, t₁), dims=3) |>gpu
-    x = cat(times,x,dims=1)
-    x = reshape(x, :,t₁)
-    times = reshape(times, :, t₁)
-    x = [x[i,:] for i ∈ 1:size(x,1)]
-    times = repeat(times, inner=(inputsize+1,1))
-    times = [times[i,:] for i ∈ 1:size(x,1)]
-    tmax = maximum(maximum.(times)) |> cpu
-    X = CubicSpline(x, times)
-    
-    tspan = (0.f0,tmax)
-    tsteps = collect(tspan[1] : tspan[2])
+        ##
+        Random.seed!(2)
+        t₁ = 10
+        bs = 7
+        inputsize = 3
+        x = Float32(sqrt(1/2))randn(Float32, inputsize, bs, t₁)
+        times = cumsum(randexp(Float32, 1, bs, t₁), dims=3)
+        x2 = repeat(vcat([cos.(rand()*2π.+times[:,i,:]) for i in 1:size(times,2)]...),inner=(inputsize,1))
+        x2 = reshape(x2, size(x))
+        x = x2 .+ 0.1.*x
+        x = Float32.(cat(times,x,dims=1))
+        x = reshape(x, :,t₁)
+        times = reshape(times, :, t₁)
+        x = [x[i,:] for i ∈ 1:size(x,1)]
+        times = repeat(times, inner=(inputsize+1,1))
+        times = [times[i,:] for i ∈ 1:size(x,1)]
+        tmax = minimum(maximum.(times))
+        X = CubicSpline(gpu.(x), gpu.(times))
+        tmin = maximum(minimum.(times))
+        tmax = minimum(maximum.(times))
+        tspan = (tmin,tmax)
+        ##
+        inputsize+=1
+        hiddensize = 16
+        cde = Chain(
+        Dense(hiddensize, hiddensize, celu),
+        Dense(hiddensize, hiddensize*inputsize, tanh)) |> gpu
+        ncde = NeuralCDE(cde, tspan, inputsize, hiddensize, Tsit5(), reltol=1e-2,abstol=1e-2, preprocess=x->Float32.(reshape(x,1, inputsize, :)), sense = InterpolatingAdjoint(autojacvec=ZygoteVJP()) )
 
-
-    hiddensize = 16
-    cde = Chain(
-    Dense(hiddensize, hiddensize, relu),
-    Dense(hiddensize, hiddensize*inputsize, tanh),)|>gpu
-    ncde = NeuralCDE(cde, tspan, AutoTsit5(Rosenbrock23()), reltol=1e-4,abstol=1e-4, saveat=tsteps, preprocess=x->reshape(x,1, inputsize, :) )
-
-    predict_neuralode(p) = gpu(ncde(X, p=p))
-    function loss_neuralode(p)
-        pred = predict_neuralode(p)
-        loss = sum(abs2, pred .- 0.0)
-        return loss
-    end
-    optim = ADAM(0.05)
-    result_neuralode = DiffEqFlux.sciml_train(loss_neuralode, node.p, optim, maxiters = 100)
-    @test result_neuralode.ls_success
+        sol = ncde(X)
+        ##
+        predict_neuralcde(p) = Array(ncde(X, p=p))
+        function loss_neuralcde(p)
+            pred = predict_neuralcde(p)
+            loss = sum(abs2, pred[:,:,end] .- 0.0)
+            return loss
+        end
+        loss_before = loss_neuralcde(ncde.p)
+        optim = ADAM(0.05)
+        result_neuralode = DiffEqFlux.sciml_train(loss_neuralcde, ncde.p, optim, maxiters = 100)
+        @test result_neuralode.minimum < loss_before
     end
 else
-  @warn "CUDA unavailable, not testing GPU support"
+  @warn "CUDA unavailable, not testing GPU support for NeuralCDE's"
 end

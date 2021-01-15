@@ -38,7 +38,7 @@ end
     end
 end
 
-@testset "Checking inhomogeneous solution" begin
+@testset "Checking inhomogeneous solution: optimization" begin
     Random.seed!(0)
     t₁ = 10
     bs = 7
@@ -59,8 +59,9 @@ end
             loss = sum(abs2, pred .- 0.0)
             return loss
         end
+        loss_before = loss_neuralode(node.p)
         optim = ADAM(0.05)
         result_neuralode = DiffEqFlux.sciml_train(loss_neuralode, node.p, optim, maxiters = 100)
-        @test result_neuralode.ls_success
+        @test result_neuralode.minimum < loss_before
     end
 end
