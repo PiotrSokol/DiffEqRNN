@@ -251,7 +251,9 @@ function DataInterpolations.CubicSpline(u::U,t::T) where {U<:Vector{<:AbstractVe
     @assert length.(t) == length.(u)
     n = length.(t) .-1
     h = similar.(t, Base.Dims{1}.(n.+2))
-    fill!.(h, eltype(t|>eltype)(0))
+    FT = eltype(t|>eltype)
+    
+    fill!.(h, FT(0))
     Δt = diff.(t)
     copyto!.(h, 2, Δt, 1, length.(Δt))
     dl = getindex.(h,UnitRange{Int}.(Ref(2),n.+1))
@@ -268,10 +270,11 @@ function DataInterpolations.CubicSpline(u::U,t::T) where {U<:Vector{<:AbstractVe
     z=broadcast(\, tA, d)
     maxpad = maximum(n).+1
     h = Base.getindex.(h, UnitRange{Int}.(Ref(1),n.+1))
-    u = hcat(rpad.(u,maxpad,Inf)...) |> permutedims
-    t = hcat(rpad.(t,maxpad,Inf)...) |> permutedims
-    h = hcat(rpad.(h,maxpad,Inf)...) |> permutedims
-    z = hcat(rpad.(z,maxpad,Inf)...) |> permutedims
+ 
+    u = hcat(rpad.(u,maxpad,FT(Inf))...) |> permutedims
+    t = hcat(rpad.(t,maxpad,FT(Inf))...) |> permutedims
+    h = hcat(rpad.(h,maxpad,FT(Inf))...) |> permutedims
+    z = hcat(rpad.(z,maxpad,FT(Inf))...) |> permutedims
     CubicSpline{true}(u,t,h,z)
 end
 
