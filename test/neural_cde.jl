@@ -55,7 +55,7 @@ end
 
 
 if Flux.use_cuda[]
-    @testset "Neural CDE test" begin
+    @testset "Neural CDE test with CUDA" begin
         ##
         Random.seed!(2)
         t₁ = 10
