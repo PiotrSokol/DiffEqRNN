@@ -3,7 +3,7 @@ using OrdinaryDiffEq
 using Random
 using Test
 using IterTools
-using Flux, DiffEqFlux
+using Flux, DiffEqFlux, DiffEqSensitivity
 
 @testset "Checking initial value problem for RNN ODE's" begin
     t₁ = 100

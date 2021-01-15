@@ -3,7 +3,7 @@ using OrdinaryDiffEq
 using Random
 using Test
 using IterTools
-using Flux, DiffEqFlux
+using Flux, DiffEqFlux, DiffEqSensitivity
 using FiniteDifferences
 using CUDA
 CUDA.allowscalar(false)
@@ -198,7 +198,7 @@ end
 
     sol = ncde(X)
     ##
-    predict_neuralcde(p) = Array(ncde(X, p=p))
+    predict_neuralcde(p) = gpu(ncde(X, p=p))
     function loss_neuralcde(p)
         pred = predict_neuralcde(p)
         loss = sum(abs2, pred[:,:,end] .- 0.0)

@@ -20,7 +20,7 @@ struct NeuralCDE{M,P,RE,T,A,K,I} <: NeuralDELayer
             preprocess = x-> reshape(x,1, nin, :)
         end
         if isnothing(u₀)
-            u₀=Random.randn!(similar(p,nhidden))./sqrt(nhidden)
+            u₀=Random.randn!(similar(p,nhidden))./eltype(p)(sqrt(nhidden))
         end
 
         new{typeof(model),typeof(p),typeof(re),
