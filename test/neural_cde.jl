@@ -15,12 +15,13 @@ using Zygote
     t₁ = 10
     bs = 7
     inputsize = 3
-    x = Float32(sqrt(1/2))randn(Float32, inputsize, bs, t₁)
-    times = cumsum(randexp(Float32, 1, bs, t₁), dims=3)
+    FT = Float64
+    x = FT(sqrt(1/2))randn(FT, inputsize, bs, t₁)
+    times = cumsum(randexp(FT, 1, bs, t₁), dims=3)
     x2 = repeat(vcat([cos.(rand()*2π.+times[:,i,:]) for i in 1:size(times,2)]...),inner=(inputsize,1))
     x2 = reshape(x2, size(x))
     x = x2 .+ 0.1.*x
-    x = Float32.(cat(times,x,dims=1))
+    x = FT.(cat(times,x,dims=1))
     x = reshape(x, :,t₁)
     times = reshape(times, :, t₁)
     x = [x[i,:] for i ∈ 1:size(x,1)]
@@ -34,10 +35,10 @@ using Zygote
     ##
     inputsize+=1
     hiddensize = 16
-    cde = Chain(
+    cde = Flux.paramtype(FT, Chain(
     Dense(hiddensize, hiddensize, celu),
-    Dense(hiddensize, hiddensize*inputsize, tanh))
-    ncde = NeuralCDE(cde, tspan, inputsize, hiddensize, Tsit5(), reltol=1e-2,abstol=1e-2, preprocess=x->Float32.(reshape(x,1, inputsize, :)), sense = InterpolatingAdjoint(autojacvec=ZygoteVJP()) )
+    Dense(hiddensize, hiddensize*inputsize, tanh)))
+    ncde = NeuralCDE(cde, tspan, inputsize, hiddensize, Tsit5(), reltol=1e-2,abstol=1e-2, preprocess=x->FT.(reshape(x,1, inputsize, :)), sense = InterpolatingAdjoint(autojacvec=ZygoteVJP()) )
 
     sol = ncde(X)
     ##
