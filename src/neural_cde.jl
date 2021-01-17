@@ -17,7 +17,7 @@ struct NeuralCDE{M,P,RE,T,A,K,I} <: NeuralDELayer
             p = _p
         end
         if isnothing(preprocess)
-            preprocess = x-> reshape(x,1, nin, :)
+            preprocess = x-> reshape(x, nin, :)
         end
         if isnothing(u₀)
             u₀=Random.randn!(similar(p,nhidden))./eltype(p)(sqrt(nhidden))
@@ -36,9 +36,9 @@ function (n::NeuralCDE)(X::T; u₀=nothing, p=n.p) where {T<:Union{CubicSpline,C
         u₀ = repeat(n.u₀, 1, n_channels(x)÷n.in) |> deepcopy
     end
     function dudt_(u,p,t)
-        u = reshape( n.re(p)(u), n.in, n.hidden,:)
+        u = permutedims(reshape( n.re(p)(u), n.in, n.hidden,:), [2,1,3])
         dX = derivative(x,t)
-        du = batched_mul(dX,u)[1,:,:]
+        batched_vec(u,dX)
     end
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
@@ -51,9 +51,9 @@ function (n::NeuralCDE)(X::LinearInterpolation; u₀=nothing, p=n.p)
         u₀ = repeat(n.u₀, 1, n_channels(x)÷n.in) |> deepcopy
     end
     function dudt_(u,p,t)
-        u = reshape( n.re(p)(u), n.in, n.hidden,:)
+        u = permutedims(reshape( n.re(p)(u), n.in, n.hidden,:), [2,1,3])
         dX = derivative(x,t)
-        du = batched_mul(dX,u)[1,:,:]
+        batched_vec(u,dX)
     end
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)

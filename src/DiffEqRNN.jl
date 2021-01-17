@@ -6,7 +6,7 @@ import LinearAlgebra:Tridiagonal, qr, Diagonal
 import Zygote:ignore, Buffer
 import Functors:fmap
 import Flux.Data:_getobs, _nobs
-import Flux: @functor, gate, kaiming_normal, glorot_normal, zeros, trainable, Dense, glorot_uniform, σ, tanh, batched_mul, rpad
+import Flux: @functor, gate, kaiming_normal, glorot_normal, zeros, trainable, Dense, glorot_uniform, σ, tanh, batched_mul, batched_vec, rpad
 using Random
 import DiffEqFlux:NeuralDELayer, basic_tgrad
 using DiffEqBase

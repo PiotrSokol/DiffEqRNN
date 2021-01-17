@@ -195,7 +195,7 @@ end
     cde = Flux.paramtype(FT, Chain(
     Dense(hiddensize, hiddensize, celu),
     Dense(hiddensize, hiddensize*inputsize, tanh))) |> gpu
-    ncde = NeuralCDE(cde, tspan, inputsize, hiddensize, Tsit5(), reltol=1e-2,abstol=1e-2, preprocess=x->FT.(reshape(x,1, inputsize, :)), sense = InterpolatingAdjoint(autojacvec=ZygoteVJP()) )
+    ncde = NeuralCDE(cde, tspan, inputsize, hiddensize, Tsit5(), reltol=1e-2,abstol=1e-2, preprocess=x->reshape(x, inputsize, :), sense = InterpolatingAdjoint(autojacvec=ZygoteVJP()) )
 
     sol = ncde(X)
     ##
