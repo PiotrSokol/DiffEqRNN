@@ -154,7 +154,9 @@ function derivative(n::nograd{<:MultivInpt}, t)
 end
 
 function infer_batchsizes(n::nograd)
-  size(n.interpolant.u[:,1] |> n.f)[end]
+   x = ignore() do
+    size(n.interpolant.u[:,1] |> n.f)[end]
+  end
 end
 """
 Fixes extrapolation issue -- jl prevents linear interpolation.
