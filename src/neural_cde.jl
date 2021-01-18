@@ -33,7 +33,7 @@ end
 function (n::NeuralCDE)(X::T; u₀=nothing, p=n.p) where {T<:Union{CubicSpline,CubicSplineRegularGrid}}
     x = nograd(X, f=n.preprocess)
     if isnothing(u₀)
-        u₀ = repeat(n.u₀, 1, n_channels(x)) |> deepcopy
+        u₀ = repeat(n.u₀, 1, infer_batchsizes(x)) |> deepcopy
     end
     function dudt_(u,p,t)
         u = permutedims(reshape( n.re(p)(u), n.in, n.hidden,:), [2,1,3])
@@ -48,7 +48,7 @@ function (n::NeuralCDE)(X::LinearInterpolation; u₀=nothing, p=n.p)
     x = nograd(X, f=n.preprocess)
     tstops = eltype(n.u₀).(collect(X.t))|> sort
     if isnothing(u₀)
-        u₀ = repeat(n.u₀, 1, n_channels(x)) |> deepcopy
+        u₀ = repeat(n.u₀, 1, infer_batchsizes(x)) |> deepcopy
     end
     function dudt_(u,p,t)
         u = permutedims(reshape( n.re(p)(u), n.in, n.hidden,:), [2,1,3])
