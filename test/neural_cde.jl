@@ -4,7 +4,6 @@ using DataInterpolations:derivative
 using OrdinaryDiffEq
 using Random
 using Test
-using IterTools
 using Flux, DiffEqFlux
 using DiffEqSensitivity
 using Zygote

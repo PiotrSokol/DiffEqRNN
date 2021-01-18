@@ -2,7 +2,7 @@ using DiffEqRNN
 using OrdinaryDiffEq
 using Random
 using Test
-using IterTools
+using Base.Iterators:product
 using Flux, DiffEqFlux, DiffEqSensitivity
 using FiniteDifferences
 using CUDA
@@ -128,7 +128,7 @@ end
     cells = [∂RNNCell, ∂GRUCell, ∂LSTMCell]
     interpolators = [CubicSplineRegularGrid, LinearInterpolationRegularGrid, ConstantInterpolationRegularGrid]
 
-    for (cell, itp) ∈ Iterators.product(cells, interpolators)
+    for (cell, itp) ∈ product(cells, interpolators)
         X = itp(x)
         ∂nn = cell(1,2) |> gpu
         tspan = Float32.([0, t₁])
@@ -148,7 +148,7 @@ end
     cells = [∂RNNCell, ∂GRUCell, ∂LSTMCell]
     interpolators = [CubicSplineRegularGrid, LinearInterpolationRegularGrid, ConstantInterpolationRegularGrid]
 
-    for (cell, itp) ∈ Iterators.product(cells, interpolators)
+    for (cell, itp) ∈ product(cells, interpolators)
         X = itp(x)
         ∂nn = cell(1,2) |> gpu
         tspan = Float32.([0, t₁])
