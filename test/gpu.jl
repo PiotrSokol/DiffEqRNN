@@ -2,7 +2,6 @@ using DiffEqRNN
 using OrdinaryDiffEq
 using Random
 using Test
-using IterTools
 using Flux, DiffEqFlux, DiffEqSensitivity
 using FiniteDifferences
 using CUDA
@@ -111,7 +110,7 @@ end
     t₁ = 100
     for cell ∈ [∂RNNCell, ∂GRUCell, ∂LSTMCell] 
         ∂nn = cell(1,2) |> gpu
-        tspan = Float32.([0, t₁])
+        tspan = Float32.((0, t₁))
         tsteps = collect(tspan[1] : tspan[2])
         node = RNNODE(∂nn, tspan, AutoTsit5(Rosenbrock23()), saveat=tsteps)
         # reltol=1e-8,abstol=1e-8
@@ -131,7 +130,7 @@ end
     for (cell, itp) ∈ Iterators.product(cells, interpolators)
         X = itp(x)
         ∂nn = cell(1,2) |> gpu
-        tspan = Float32.([0, t₁])
+        tspan = Float32.((0, t₁))
         tsteps = collect(tspan[1] : tspan[2])
         node = RNNODE(∂nn, tspan, AutoTsit5(Rosenbrock23()), saveat=tsteps, preprocess=permutedims )
         # reltol=1e-8,abstol=1e-8
@@ -151,7 +150,7 @@ end
     for (cell, itp) ∈ Iterators.product(cells, interpolators)
         X = itp(x)
         ∂nn = cell(1,2) |> gpu
-        tspan = Float32.([0, t₁])
+        tspan = Float32.((0, t₁))
         tsteps = collect(tspan[1] : tspan[2])
         node = RNNODE(∂nn, tspan, AutoTsit5(Rosenbrock23()), reltol=1e-4,abstol=1e-4, saveat=tsteps, preprocess=permutedims )
         # reltol=1e-8,abstol=1e-8
