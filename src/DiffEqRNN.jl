@@ -5,7 +5,6 @@ import DataInterpolations: AbstractInterpolation, munge_data, derivative
 import LinearAlgebra:Tridiagonal, qr, Diagonal
 import Zygote:ignore, Buffer
 import Functors:fmap
-using Flux
 import Flux.Data:_getobs, _nobs
 import Flux: @functor, gate, kaiming_normal, glorot_normal, zeros, trainable, Dense, glorot_uniform, σ, tanh, batched_mul, batched_vec, rpad
 using Random
@@ -14,6 +13,9 @@ using DiffEqBase
 import DiffEqCallbacks: SavedValues, SavingCallback
 using DiffEqSensitivity
 using Requires
+
+
+# const use_cuda = Ref(false)
 
 include("initializers.jl")
 include("layers.jl")
@@ -30,7 +32,6 @@ export RNNODE, generate_adj_saving_callback
 include("neural_cde.jl")
 export NeuralCDE
 
-include("_flux_outputsize.jl")
 function __init__()
     @require CUDA="052768ef-5323-5732-b1bb-66c8b64840ba" begin
     include("interp_cuda.jl")

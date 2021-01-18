@@ -84,7 +84,7 @@ end
 function (n::RNNODE)(X::T; u₀=nothing, p=n.p) where {T<:Union{CubicSpline,CubicSplineRegularGrid}}
     x = nograd(X, f=n.preprocess)
     if isnothing(u₀)
-        u₀ = repeat(n.u₀, 1, infer_batchsize(x)) |> deepcopy
+        u₀ = repeat(n.u₀, 1, n_channels(x)) |> deepcopy
     end
     dudt_(u,p,t) = n.re(p)(u,x(t))
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
@@ -98,7 +98,7 @@ function (n::RNNODE)(X::T; u₀=nothing, p=n.p) where {T<:Union{LinearInterpolat
     x = nograd(X, f=n.preprocess)
     tstops = eltype(n.u₀).(collect(X.t))
     if isnothing(u₀)
-        u₀ = repeat(n.u₀, 1, infer_batchsize(x)) |> deepcopy
+        u₀ = repeat(n.u₀, 1, n_channels(x)) |> deepcopy
     end
     dudt_(u,p,t) = n.re(p)(u,x(t))
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
