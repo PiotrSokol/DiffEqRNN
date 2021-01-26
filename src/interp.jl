@@ -155,7 +155,7 @@ end
 
 function infer_batchsizes(n::nograd)
    x = ignore() do
-    size(n.interpolant.u[:,1] |> n.f)[end]
+    size(n(0.1))[end]
   end
 end
 """
@@ -202,20 +202,22 @@ function DataInterpolations.derivative(A::LinearInterpolationRegularGrid{<:Abstr
     (A.u[:, idx+1] - A.u[:, idx]) / (A.t[idx+1] - A.t[idx])
 end
 
-function DataInterpolations.derivative(C::CubicSplineRegularGrid{<:AbstractVector{<:Number}}, t::Number)
+function DataInterpolations.derivative(C::CubicSplineRegularGrid{<:AbstractVector{<:Number}}, t::Number; type=:const)
     re = t%C.Δt
     i = floor(Int,t/C.Δt + 1)
+    i == i >= length(B.t) ? i = length(B.t) - 1 : nothing
+    i == min(1,i)
     dI = -3C.z[i] * (C.t[i + 1] - t)^2 /6C.Δt + 3C.z[i + 1] * (t - C.t[i])^2 /6C.Δt
     dC = C.u[i + 1]/C.Δt - C.z[i + 1] * C.Δt / 6
     dD = -(C.u[i]/C.Δt - C.z[i] * C.Δt / 6)
     dI + dC + dD
 end
 
-function DataInterpolations.derivative(B::CubicSplineRegularGrid{<:AbstractMatrix{<:Number}}, t::Number)
+function DataInterpolations.derivative(B::CubicSplineRegularGrid{<:AbstractMatrix{<:Number}}, t::Number; type=:const)
     re = t%B.Δt
     i = floor(Int,t/B.Δt + 1)
-    i == i > length(B.t) ? i = length(B.t) - 1 : nothing
-    i == 0 ? i += 1 : nothing
+    i == i >= length(B.t) ? i = length(B.t) - 1 : nothing
+    i == min(1,i)
     u(i) = view(B.u, :,i)
     z(i) = view(B.z, :,i)
     dI = -3z(i) .* (B.Δt - re)^2 /6B.Δt .+ 3z(i+1) .* (re)^2 / 6B.Δt

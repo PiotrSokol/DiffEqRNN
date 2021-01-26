@@ -17,7 +17,7 @@ function DataInterpolations._interpolate(A::CubicSplineRegularGrid{<:CuArray{<:N
   re = eltype(A.u)(t%A.Δt)
   i = floor(Int,t/A.Δt + 1)
   i == i >= length(A.t) ? i = length(A.t) - 1 : nothing
-  i == 0 ? i += 1 : nothing
+  i == min(1,i)
   z⁺ = A.z[:,i+1]
   z = A.z[:,i]
   u⁺ = A.u[:,i+1]
@@ -33,8 +33,8 @@ end
 function DataInterpolations.derivative(A::CubicSplineRegularGrid{<:CuArray{<:Number}}, t::Number)
     re = t%A.Δt
     i = floor(Int,t/A.Δt+ 1)
-    i == i > length(A.t) ? i = length(A.t) - 1 : nothing
-    i == 0 ? i += 1 : nothing
+    i == i >= length(B.t) ? i = length(B.t) - 1 : nothing
+    i == min(1,i)
     z⁺ = A.z[:,i+1]
     z = A.z[:,i]
     u⁺ = A.u[:,i+1]

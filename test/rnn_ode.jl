@@ -2,8 +2,7 @@ using DiffEqRNN
 using OrdinaryDiffEq
 using Random
 using Test
-using IterTools
-using Flux, DiffEqFlux, DiffEqSensitivity
+using Flux, DiffEqSensitivity, DiffEqFlux
 
 @testset "Checking initial value problem for RNN ODE's" begin
     t₁ = 100
@@ -17,7 +16,7 @@ using Flux, DiffEqFlux, DiffEqSensitivity
         @test sol.retcode == :Success
     end
 end
-
+##
 @testset "Checking inhomogeneous solution" begin
     Random.seed!(0)
     t₁ = 100
@@ -36,8 +35,18 @@ end
         sol = node(X)
         @test sol.retcode == :Success
     end
+    for cell ∈ cells
+        X = CubicSplineRegularGrid(x)
+        ∂nn = cell(1,2)
+        tspan = Float32.([0, t₁])
+        tsteps = collect(tspan[1] : tspan[2])
+        node = RNNODE(∂nn, tspan, AutoTsit5(Rosenbrock23()), saveat=tsteps, preprocess=permutedims, append_input=true )
+        # reltol=1e-8,abstol=1e-8
+        sol = node(X)
+        @test sol.retcode == :Success
+    end
 end
-
+##
 @testset "Checking inhomogeneous solution: optimization" begin
     Random.seed!(0)
     t₁ = 10
@@ -51,7 +60,25 @@ end
         ∂nn = cell(1,2)
         tspan = Float32.([0, t₁])
         tsteps = collect(tspan[1] : tspan[2])
-        node = RNNODE(∂nn, tspan, AutoTsit5(Rosenbrock23()), reltol=1e-4,abstol=1e-4, saveat=tsteps, preprocess=permutedims )
+        node = RNNODE(∂nn, tspan, Tsit5(), reltol=1e-4,abstol=1e-4, saveat=tsteps, preprocess=permutedims )
+        # reltol=1e-8,abstol=1e-8
+        predict_neuralode(p) = Array(node(X, p=p))
+        function loss_neuralode(p)
+            pred = predict_neuralode(p)
+            loss = sum(abs2, pred .- 0.0)
+            return loss
+        end
+        loss_before = loss_neuralode(node.p)
+        optim = ADAM(0.05)
+        result_neuralode = DiffEqFlux.sciml_train(loss_neuralode, node.p, optim, maxiters = 100)
+        @test result_neuralode.minimum < loss_before
+    end
+    for cell ∈ cells
+        X = CubicSplineRegularGrid(x)
+        ∂nn = cell(1,2)
+        tspan = Float32.([0, t₁])
+        tsteps = collect(tspan[1] : tspan[2])
+        node = RNNODE(∂nn, tspan, Tsit5(), reltol=1e-4,abstol=1e-4, saveat=tsteps, preprocess=permutedims, append_input=true )
         # reltol=1e-8,abstol=1e-8
         predict_neuralode(p) = Array(node(X, p=p))
         function loss_neuralode(p)

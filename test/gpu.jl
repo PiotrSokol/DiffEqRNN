@@ -2,8 +2,8 @@ using DiffEqRNN
 using OrdinaryDiffEq
 using Random
 using Test
-using Flux, DiffEqFlux, DiffEqSensitivity
-using FiniteDifferences
+using Flux, DiffEqSensitivity
+using FiniteDifferences, DiffEqFlux
 using CUDA
 CUDA.allowscalar(false)
 
@@ -112,7 +112,7 @@ end
         ∂nn = cell(1,2) |> gpu
         tspan = Float32.((0, t₁))
         tsteps = collect(tspan[1] : tspan[2])
-        node = RNNODE(∂nn, tspan, AutoTsit5(Rosenbrock23()), saveat=tsteps)
+        node = RNNODE(∂nn, tspan, Tsit5(), saveat=tsteps)
         # reltol=1e-8,abstol=1e-8
         sol = node(node.u₀)
         @test sol.retcode == :Success
@@ -128,11 +128,11 @@ end
     interpolators = [CubicSplineRegularGrid, LinearInterpolationRegularGrid, ConstantInterpolationRegularGrid]
 
     for (cell, itp) ∈ Iterators.product(cells, interpolators)
-        X = itp(x)
+        X = itp(x);
         ∂nn = cell(1,2) |> gpu
         tspan = Float32.((0, t₁))
         tsteps = collect(tspan[1] : tspan[2])
-        node = RNNODE(∂nn, tspan, AutoTsit5(Rosenbrock23()), saveat=tsteps, preprocess=permutedims )
+        node = RNNODE(∂nn, tspan, Tsit5(), saveat=tsteps, preprocess=permutedims )
         # reltol=1e-8,abstol=1e-8
         sol = node(X)
         @test sol.retcode == :Success
@@ -152,7 +152,7 @@ end
         ∂nn = cell(1,2) |> gpu
         tspan = Float32.((0, t₁))
         tsteps = collect(tspan[1] : tspan[2])
-        node = RNNODE(∂nn, tspan, AutoTsit5(Rosenbrock23()), reltol=1e-4,abstol=1e-4, saveat=tsteps, preprocess=permutedims )
+        node = RNNODE(∂nn, tspan, Tsit5(), reltol=1e-4,abstol=1e-4, saveat=tsteps, preprocess=permutedims )
         # reltol=1e-8,abstol=1e-8
         predict_neuralode(p) = gpu(node(X, p=p))
         function loss_neuralode(p)
