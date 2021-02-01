@@ -120,9 +120,9 @@ end
 end 
 
 @testset "Flux.Data.Dataloader interface" begin
-    ds = 16
-    bs = 8
-    ts = 784
+    ds = 432
+    bs = 216
+    ts = 196
     x = randn(Float32, ds,ts)
     Y = randn(Float32, ds)
     for itp ∈ [CubicSplineRegularGrid, LinearInterpolationRegularGrid, ConstantInterpolationRegularGrid]
