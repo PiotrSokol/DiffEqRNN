@@ -24,7 +24,7 @@ function ∂RNNCell(in::Integer, out::Integer, init)
       Wᵢ = init(out,in)
       Wᵣ = init(out,out)
       b = init(out)
-      u₀ = zeros(out,1)
+      u₀ = state0_init(out,1)
       ∂RNNCell(σ,Wᵢ,Wᵣ,b,u₀)
 end
 
