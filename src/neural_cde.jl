@@ -30,15 +30,21 @@ struct NeuralCDE{M,P,RE,T,A,K,I} <: NeuralDELayer
             nhidden, preprocess, u₀)
     end
 end
-function (n::NeuralCDE)(X::T; u₀=nothing, p=n.p) where {T<:Union{CubicSpline,CubicSplineRegularGrid}}
-    x = nograd(X, f=n.preprocess)
-    if isnothing(u₀)
-        u₀ = repeat(n.u₀, 1, infer_batchsizes(x))
-    end
-    function dudt_(u,p,t)
-        u = permutedims(reshape( n.re(p)(u), n.in, n.hidden,:), [2,1,3])
-        dX = derivative(x,t)
+function dudt_CDE(u,p,t,X,re,in,hidden, preprocess)
+        u = permutedims(reshape( re(p)(u), in, hidden,:), [2,1,3])
+        dX = derivative(X,t) |> preprocess
         batched_vec(u,dX)
+end
+function (n::NeuralCDE)(X::T; u₀=nothing, p=n.p) where {T<:Union{CubicSpline,CubicSplineRegularGrid}}
+    # x = nograd(X, f=n.preprocess)
+    if isnothing(u₀)
+      inferred_batchsize = ignore() do
+        size(n.preprocess(X(minimum(X.t))))[end]
+      end
+        u₀ = repeat(n.u₀, 1, inferred_batchsize)
+    end
+    dudt_ = let X=X, re=n.re, in=n.in, hidden=n.hidden, preprocess=n.preprocess
+        (u,p,t) -> dudt_CDE(u,p,t,X,re,in,hidden, preprocess)
     end
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
@@ -50,10 +56,8 @@ function (n::NeuralCDE)(X::LinearInterpolation; u₀=nothing, p=n.p)
     if isnothing(u₀)
         u₀ = repeat(n.u₀, 1, infer_batchsizes(x))
     end
-    function dudt_(u,p,t)
-        u = permutedims(reshape( n.re(p)(u), n.in, n.hidden,:), [2,1,3])
-        dX = derivative(x,t)
-        batched_vec(u,dX)
+    dudt_ = let X=X, re=n.re, in=n.in, hidden=n.hidden, preprocess=n.preprocess
+        (u,p,t) -> dudt_CDE(u,p,t,X,re,in,hidden, preprocess)
     end
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)

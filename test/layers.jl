@@ -1,6 +1,4 @@
-import DiffEqRNN:∂RNNCell,∂GRUCell, ∂LSTMCell, destructure
-using Test
-using Random
+import DiffEqRNN: destructure
 
 @testset "Checking type stability" begin
     hsize = 10

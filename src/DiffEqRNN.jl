@@ -3,26 +3,27 @@ module DiffEqRNN
 using DataInterpolations
 import DataInterpolations: AbstractInterpolation, munge_data, derivative
 import LinearAlgebra:Tridiagonal, qr, Diagonal
-import Zygote:ignore, Buffer
-import Zygote:@ignore
+
+import Zygote:ignore, @ignore, Buffer, @adjoint
 import Functors:fmap
 import Flux.Data:_getobs, _nobs
 import Flux: @functor, gate, kaiming_normal, glorot_normal, zeros, trainable, Dense, glorot_uniform, σ, tanh, batched_vec, rpad
-using Random
+using Flux
+# import Flux:_restructure,destructure
+
+
+using DiffEqBase,DiffEqSensitivity, DiffEqFlux
 import DiffEqFlux:NeuralDELayer, basic_tgrad
-using DiffEqBase
 import DiffEqCallbacks: SavedValues, SavingCallback, PresetTimeCallback
-using DiffEqSensitivity, DiffEqFlux
-using DiffEqFlux: basic_tgrad, NeuralDELayer
+
+using Random
 using Requires
 
 
 include("initializers.jl")
 include("layers.jl")
 include("interp.jl")
-include("embedding.jl")
-export CheapEmbedding
-
+include("nograd.jl")
 
 export limit_cycle, orthogonal_init
 export ∂RNNCell, ∂GRUCell, ∂LSTMCell
@@ -37,7 +38,15 @@ export NeuralCDE
 
 function __init__()
     @require CUDA="052768ef-5323-5732-b1bb-66c8b64840ba" begin
-    include("interp_cuda.jl")
+        include("interp_cuda.jl")
+    end
+    @require LearnBase="7f8f8fb0-2700-5f03-b4bd-41f8cfc144b6" begin
+        using .LearnBase
+        LearnBase.getobs(data::ConstantInterpolation{<:AbstractMatrix}, i) = ConstantInterpolation{true}(data.u[i,:],data.t,data.dir)
+        LearnBase.getobs(data::LinearInterpolationRegularGrid{<:AbstractMatrix}, i) = LinearInterpolation{true}(data.u[i,:],data.t)
+        LearnBase.getobs(data::CubicSplineRegularGrid{<:AbstractMatrix}, i) = CubicSplineRegularGrid{true}(data.u[i,:], data.t.start, data.t.stop, data.t.step, data.z[i,:])
+        LearnBase.getobs(data::CubicSpline{<:AbstractMatrix}, i) = CubicSpline{true}(data.u[i,:], data.t, data.h, data.z[i,:])
+        LearnBase.nobs(n::T) where {T<:Union{ConstantInterpolation,LinearInterpolationRegularGrid,CubicSplineRegularGrid,CubicSpline}} =  size(n.u,1)
     end
 end
 

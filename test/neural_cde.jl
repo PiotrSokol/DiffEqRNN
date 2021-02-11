@@ -1,13 +1,9 @@
-using DiffEqRNN
 using DataInterpolations
 using DataInterpolations:derivative
 using OrdinaryDiffEq
-using Random
-using Test
 using Flux
 using DiffEqSensitivity
 using DiffEqFlux
-using Zygote
 ##
 @testset "Neural CDE test" begin
     ##

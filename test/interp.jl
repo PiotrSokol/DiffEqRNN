@@ -1,6 +1,3 @@
-import DiffEqRNN:CubicSplineRegularGrid, LinearInterpolationRegularGrid, ConstantInterpolationRegularGrid, derivative
-using Test
-using Random
 using FiniteDifferences
 import Flux.Data:DataLoader
 

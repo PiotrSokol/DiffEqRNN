@@ -1,28 +1,39 @@
 using DiffEqRNN
 using Test
 using Random
-using Flux
 
-@testset "Initializers" begin
-  include("initializers.jl")
+@assert isempty(ARGS) || "adj" ∈ ARGS
+
+if isempty(ARGS)
+  @testset "Initializers" begin
+    include("initializers.jl")
+  end
 end
 
-@testset "Interpolation tool" begin
-  include("interp.jl")
+if isempty(ARGS)
+  @testset "Interpolation tool" begin
+    include("interp.jl")
+  end
 end
 
-@testset "Continuous time RNN layers" begin
-  include("layers.jl")
+if isempty(ARGS)
+  @testset "Continuous time RNN layers" begin
+    include("layers.jl")
+  end
 end
 
 @testset "Continuous time RNN solve & minimization" begin
   include("rnn_ode.jl")
 end
 
-include("neural_cde.jl")
+if isempty(ARGS)
+   include("neural_cde.jl")
+end
 
 if Flux.use_cuda[]
-  include("gpu.jl")
+  let to_run = to_run
+    include("gpu.jl")
+  end
 else
   @warn "CUDA unavailable, not testing GPU support"
 end

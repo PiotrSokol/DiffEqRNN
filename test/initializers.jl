@@ -1,5 +1,4 @@
 import DiffEqRNN:limit_cycle, orthogonal_init, state0_init
-using Test
 
 @testset "Type check" begin
     dims = (10,10)

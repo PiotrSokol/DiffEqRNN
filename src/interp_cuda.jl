@@ -18,10 +18,10 @@ function DataInterpolations._interpolate(A::CubicSplineRegularGrid{<:CuArray{<:N
   i = floor(Int,t/A.Δt + 1)
   i == i >= length(A.t) ? i = length(A.t) - 1 : nothing
   i == min(1,i)
-  z⁺ = A.z[:,i+1]
-  z = A.z[:,i]
-  u⁺ = A.u[:,i+1]
-  u = A.u[:,i]
+  z⁺  = view(A.z, :,i+1)
+  z   = view(A.z, :,i)
+  u⁺  = view(A.u, :,i+1)
+  u   = view(A.u, :,i)
   Δt = A.Δt
 
   I = z .* (A.Δt - re)^3 /6Δt .+ z⁺ .* (re)^3 /6Δt
@@ -35,10 +35,10 @@ function DataInterpolations.derivative(A::CubicSplineRegularGrid{<:CuArray{<:Num
     i = floor(Int,t/A.Δt+ 1)
     i == i >= length(A.t) ? i = length(A.t) - 1 : nothing
     i == min(1,i)
-    z⁺ = A.z[:,i+1]
-    z = A.z[:,i]
-    u⁺ = A.u[:,i+1]
-    u = A.u[:,i]
+    z⁺  = view(A.z, :,i+1)
+    z   = view(A.z, :,i)
+    u⁺  = view(A.u, :,i+1)
+    u   = view(A.u, :,i)
     Δt = A.Δt
 
     dI = -3z .* (A.Δt - re)^2 /6Δt .+ 3z⁺ .* (re)^2 / 6Δt
@@ -53,8 +53,8 @@ function DataInterpolations._interpolate(A::CubicSpline{<:CuMatrix,<:CuMatrix}, 
     i⁺= vec(i.+1)
     i = CartesianIndex.(Base.OneTo(size(A.u,1)) |> cu, i)
     i⁺ = CartesianIndex.(Base.OneTo(size(A.u,1)) |> cu, i⁺)
-    I = A.z[i] .* (A.t[i⁺] .- t).^3 ./ (6A.h[i⁺]) .+ A.z[i⁺] .* (t .- A.t[i]).^3 ./ (6A.h[i⁺])
-    C = (A.u[i⁺]./A.h[i⁺] .- A.z[i⁺].*A.h[i⁺]./6).*(t .- A.t[i])
-    D = (A.u[i]./A.h[i⁺] .- A.z[i].*A.h[i⁺]./6).*(A.t[i⁺] .- t)
+    I = @views A.z[i] .* (A.t[i⁺] .- t).^3 ./ (6A.h[i⁺]) .+ A.z[i⁺] .* (t .- A.t[i]).^3 ./ (6A.h[i⁺])
+    C = @views (A.u[i⁺]./A.h[i⁺] .- A.z[i⁺].*A.h[i⁺]./6).*(t .- A.t[i])
+    D = @views (A.u[i]./A.h[i⁺] .- A.z[i].*A.h[i⁺]./6).*(A.t[i⁺] .- t)
     I .+ C .+ D
 end

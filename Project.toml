@@ -4,6 +4,7 @@ authors = ["Piotr Sokół <piotr.sokol@stonybrook.edu>"]
 version = "0.1.0"
 
 [deps]
+AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 DataInterpolations = "82cc6244-b520-54b8-b5a6-8a565e85f1d0"
@@ -12,17 +13,24 @@ DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
 DiffEqCallbacks = "459566f4-90b8-5000-8ac3-15dfb0a30def"
 DiffEqFlux = "aae7a2af-3d4f-5e19-a356-7da93b79d9d0"
 DiffEqSensitivity = "41bf760c-e81c-5289-8e54-58b1f1f8abe2"
-FiniteDifferences = "26cc04aa-876d-5657-8c51-4c34ba976000"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 Functors = "d9f16b24-f501-4c13-a1f2-28368ffc5196"
 GalacticOptim = "a75be94c-b780-496d-a8a9-0878b188d577"
+LearnBase = "7f8f8fb0-2700-5f03-b4bd-41f8cfc144b6"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-MLDataUtils = "cc2ba9b6-d476-5e6d-8eaf-a92d5412d41d"
 OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
+Profile = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-RecursiveArrayTools = "731186ca-8d62-57ce-b412-fbd966d074cd"
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+SnoopCompile = "aa65fe97-06da-5843-b5b1-d5d13cad87d2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
+
+[extras]
+FiniteDifferences = "26cc04aa-876d-5657-8c51-4c34ba976000"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["FiniteDifferences", "Test"]
