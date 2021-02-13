@@ -52,7 +52,7 @@ function DataInterpolations._interpolate(A::CubicSplineRegularGrid{<:AbstractVec
   I + C + D
 end
 
-function DataInterpolations._interpolate(A::CubicSplineRegularGrid{<:AbstractMatrix{T}},t) where {T<:Number}
+function DataInterpolations._interpolate(A::CubicSplineRegularGrid{<:AbstractMatrix{T}},t::Number) where {T<:Number}
 interpolation = ignore() do
     interpolation = Vector{T}(undef,size(A.u,1))
     re = T(t%A.Δt)
@@ -111,6 +111,7 @@ function DataInterpolations._interpolate(A::LinearInterpolationRegularGrid{<:Abs
   idx == nothing ? idx = length(A.t) - 1 : idx -= 1
   idx == 0 ? idx += 1 : nothing
   θ = (t - A.t[idx])/ (A.t[idx+1] - A.t[idx])
+  
   @views (1-θ)*A.u[idx] + θ*A.u[idx+1]
 end
 
@@ -125,6 +126,7 @@ end
 Modifying Flux.Data._getobs to work with (some) subtypes of AbstractInterpolation
 """
 _getobs(data::ConstantInterpolation{<:AbstractMatrix}, i) = ConstantInterpolation{true}(data.u[i,:],data.t,data.dir)
+
 _getobs(data::LinearInterpolationRegularGrid{<:AbstractMatrix}, i) = LinearInterpolation{true}(data.u[i,:],data.t)
 _getobs(data::CubicSplineRegularGrid{<:AbstractMatrix}, i) = CubicSplineRegularGrid{true}(data.u[i,:], data.t.start, data.t.stop, data.t.step, data.z[i,:])
 _getobs(data::CubicSpline{<:AbstractMatrix}, i) = CubicSpline{true}(data.u[i,:], data.t, data.h, data.z[i,:])

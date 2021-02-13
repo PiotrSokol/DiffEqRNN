@@ -21,16 +21,19 @@ using Requires
 
 
 include("initializers.jl")
-include("layers.jl")
+# include("layers.jl")
+# export ∂RNNCell, ∂GRUCell, ∂LSTMCell
+include("fast_layers.jl")
 include("interp.jl")
 include("nograd.jl")
 
 export limit_cycle, orthogonal_init
-export ∂RNNCell, ∂GRUCell, ∂LSTMCell
+export Fast∂RNNCell, Fast∂GRUCell, Fast∂LSTMCell
 export CubicSplineRegularGrid, LinearInterpolationRegularGrid, ConstantInterpolationRegularGrid, derivative, AbstractInterpolation
 export CubicSpline
 
-include("rnn_ode.jl")
+# include("rnn_ode.jl")
+include("fast_rnn_ode.jl")
 export RNNODE, generate_adj_saving_callback
 
 include("neural_cde.jl")

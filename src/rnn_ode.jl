@@ -69,6 +69,7 @@ function destructure(m; cache = IdDict())
   end
   return vcat(vec.(copy(xs))...), p -> _restructure(m, p, cache = cache)
 end
+
 struct RNNODE{M<:AbstractRNNDELayer,P,RE,T,A,K,F,S} <: NeuralDELayer
     model::M
     u₀::P
@@ -86,7 +87,7 @@ struct RNNODE{M<:AbstractRNNDELayer,P,RE,T,A,K,F,S} <: NeuralDELayer
     function RNNODE(model,tspan, args...;p = nothing, preprocess=permutedims,
         sense = InterpolatingAdjoint(autojacvec=ZygoteVJP()), append_input=false, kwargs...)
 
-        _p,re = Flux.destructure(model)
+        _p,re = destructure(model)
         nhidden = size(model.Wᵣ,2)
         nin = size(model.Wᵢ,2)
         if isnothing(p)
@@ -104,7 +105,7 @@ struct RNNODE{M<:AbstractRNNDELayer,P,RE,T,A,K,F,S} <: NeuralDELayer
     end
     function RNNODE(model::∂LSTMCell,tspan, args...;p = nothing,  preprocess=permutedims, sense = InterpolatingAdjoint(autojacvec=ZygoteVJP()), append_input=false, kwargs...)
 
-        _p,re = Flux.destructure(model)
+        _p,re = destructure(model)
         nhidden = size(model.Wᵢ,1)÷2
         nin = size(model.Wᵢ,2)
         if isnothing(p)
