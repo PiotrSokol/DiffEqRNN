@@ -38,7 +38,7 @@ using DiffEqFlux
 
     sol = ncde(X)
     ##
-    predict_neuralcde(p) = Array(ncde(X, p=p))
+    predict_neuralcde(p) = Array(ncde(X,p))
     function loss_neuralcde(p)
         pred = predict_neuralcde(p)
         loss = sum(abs2, pred[:,:,end] .- 0.0)

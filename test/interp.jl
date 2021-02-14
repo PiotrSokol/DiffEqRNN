@@ -30,7 +30,7 @@ end # interpolation
     bs = 16
     ts = 784
     A = randn(Float32, ts)
-    τs = (ts-1)rand(100)
+    τs = (ts-1)rand(Float32,100)
     v = CubicSplineRegularGrid(A)
     v′ = CubicSpline(A,collect(0:ts-1))
     @testset "1-D spline" begin
@@ -44,7 +44,7 @@ end # interpolation
         @test isapprox(v(τ)[1], v′(τ))
       end
     end
-    
+
     v = CubicSplineRegularGrid(A,t₀=0,t₁=2ts-1,Δt=2)
     v′ = CubicSpline(A,collect(0:2:2ts-1))
     for τ ∈ τs
@@ -91,7 +91,7 @@ end
           @test isapprox(central_fdm(5, 1)(t->v(t), τ), derivative(v,τ), rtol=1e-3)
         end
       end
-end 
+end
 
 @testset "Batched derivative tests" begin
     Random.seed!(0)
@@ -114,7 +114,7 @@ end
     for τ ∈ τs
       @test isapprox(central_fdm(5, 1)(t->X(t), τ), derivative(X,τ), rtol=1e-3)
     end
-end 
+end
 
 @testset "Flux.Data.Dataloader interface" begin
     ds = 432
@@ -130,4 +130,3 @@ end
         @test x[1:bs,:] == x1.u
       end
 end # interpolation
-

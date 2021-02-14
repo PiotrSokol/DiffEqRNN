@@ -52,24 +52,20 @@ function DataInterpolations._interpolate(A::CubicSplineRegularGrid{<:AbstractVec
   I + C + D
 end
 
-function DataInterpolations._interpolate(A::CubicSplineRegularGrid{<:AbstractMatrix{T}},t::Number) where {T<:Number}
-interpolation = ignore() do
-    interpolation = Vector{T}(undef,size(A.u,1))
-    re = T(t%A.Δt)
+function DataInterpolations._interpolate(A::CubicSplineRegularGrid{<:AbstractMatrix{<:Number}},t::T) where {T<:Number}
+    re = t%A.Δt
     i = floor(Int32,t/A.Δt + 1)
     i == i >= length(A.t) ? i = length(A.t) - 1 : nothing
     i == 0 ? i += 1 : nothing
 
     u(i) = view(A.u, :,i)
     z(i) = view(A.z, :,i)
-    Δt = A.Δt
+    Δt = T(A.Δt)
 
-    interpolation .= z(i) .* (Δt - re)^3 /6Δt .+ z(i+1) .* (re)^3 /6Δt
-    interpolation .+= (u(i+1)/Δt .- z(i+1).*Δt/6).*(re)
-    interpolation .+= (u(i)/Δt .- z(i).*Δt/6).*(Δt - re)
-
-    interpolation
-  end
+    I = z(i) .* (Δt - re)^3 /6Δt .+ z(i+1) .* (re)^3 /6Δt
+    C = (u(i+1)/Δt .- z(i+1).*Δt/6).*(re)
+    D = (u(i)/Δt .- z(i).*Δt/6).*(Δt - re)
+    return I+C+D
 end
 
 struct LinearInterpolationRegularGrid{uType,tType,FT,T} <: AbstractInterpolation{FT,T}
@@ -108,16 +104,16 @@ end
 
 function DataInterpolations._interpolate(A::LinearInterpolationRegularGrid{<:AbstractVector{<:Number}}, t::Number)
   idx = findfirst(x->x>=t,A.t)
-  idx == nothing ? idx = length(A.t) - 1 : idx -= 1
+  isnothing(idx) ? idx = length(A.t) - 1 : idx -= 1
   idx == 0 ? idx += 1 : nothing
   θ = (t - A.t[idx])/ (A.t[idx+1] - A.t[idx])
-  
+
   @views (1-θ)*A.u[idx] + θ*A.u[idx+1]
 end
 
 function DataInterpolations._interpolate(A::LinearInterpolationRegularGrid{<:AbstractMatrix{<:Number}}, t::Number)
   idx = findfirst(x->x>=t,A.t)
-  idx == nothing ? idx = length(A.t) - 1 : idx -= 1
+  isnothing(idx) ? idx = length(A.t) - 1 : idx -= 1
   idx == 0 ? idx += 1 : nothing
   θ = (t - A.t[idx])/ (A.t[idx+1] - A.t[idx])
   @views (1-θ)*A.u[:,idx] + θ*A.u[:,idx+1]
@@ -135,14 +131,16 @@ _nobs(n::T) where {T<:Union{ConstantInterpolation,LinearInterpolationRegularGrid
 
 
 function DataInterpolations.derivative(A::LinearInterpolationRegularGrid{<:AbstractVector{<:Number}}, t::Number)
-    idx = findfirst(x -> x >= t, A.t) - 1
+    idx = findfirst(x -> x >= t, A.t)
+    isnothing(idx) ? idx = length(A.t) - 1 : idx -= 1
     idx == 0 ? idx += 1 : nothing
     θ = 1 / (A.t[idx+1] - A.t[idx])
     @views (A.u[idx+1] - A.u[idx]) / (A.t[idx+1] - A.t[idx])
 end
 
 function DataInterpolations.derivative(A::LinearInterpolationRegularGrid{<:AbstractMatrix{<:Number}}, t::Number)
-    idx = findfirst(x -> x >= t, A.t) - 1
+    idx = findfirst(x -> x >= t, A.t)
+    isnothing(idx) ? idx = length(A.t) - 1 : idx -= 1
     idx == 0 ? idx += 1 : nothing
     θ = 1 / (A.t[idx+1] - A.t[idx])
     @views (A.u[:, idx+1] - A.u[:, idx]) / (A.t[idx+1] - A.t[idx])
@@ -151,6 +149,7 @@ end
   Implicitly the derivatives for CubicSplines assume a constant extrapolation.
 """
 function DataInterpolations.derivative(C::CubicSplineRegularGrid{<:AbstractVector{<:Number}}, t::Number)
+
     re = t%C.Δt
     i = floor(Int,t/C.Δt + 1)
     i == i >= length(B.t) ? i = length(B.t) - 1 : nothing
@@ -161,10 +160,10 @@ function DataInterpolations.derivative(C::CubicSplineRegularGrid{<:AbstractVecto
     dI + dC + dD
 end
 
-function DataInterpolations.derivative(B::CubicSplineRegularGrid{<:AbstractMatrix{<:T}}, t::Number) where {T<:Number}
+function DataInterpolations.derivative(B::CubicSplineRegularGrid{<:AbstractMatrix{<:Number}}, t::T) where {T<:Number}
 interpolation = ignore() do
     interpolation = Vector{T}(undef,size(B.u,1))
-    re = t%B.Δt
+    re = T(t%B.Δt)
     i = floor(Int,t/B.Δt + 1)
     i == i >= length(B.t) ? i = length(B.t) - 1 : nothing
     i == min(1,i)
@@ -292,4 +291,9 @@ function DataInterpolations.derivative(A::DataInterpolations.CubicSpline{<:Abstr
     dC = @views (A.u[:,i⁺]./A.h[:,i⁺] .- A.z[:,i⁺].*A.h[:,i⁺]./6)
     dD = @views -(A.u[:,i]./A.h[:,i⁺] .- A.z[:,i].*A.h[:,i⁺]./6)
     dI .+ dC .+ dD
+end
+
+function ChainRulesCore.rrule(::typeof(DataInterpolations._interpolate), A::Union{CubicSplineRegularGrid,LinearInterpolationRegularGrid,CubicSpline,LinearInterpolation}, t::Number)
+    interpolate_pullback(Δ) = (NO_FIELDS, DoesNotExist(), derivative(A, t) .* Δ)
+    return DataInterpolations._interpolate(A, t), interpolate_pullback
 end

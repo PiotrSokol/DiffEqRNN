@@ -4,7 +4,7 @@ using Flux, DiffEqSensitivity, DiffEqFlux, Zygote
 if isempty(ARGS)
     @testset "Checking initial value problem for RNN ODE's" begin
         t₁ = 100
-        for cell ∈ [Fast∂RNNCell, Fast∂GRUCell, Fast∂LSTMCell]
+        for cell ∈ [∂RNNCell, ∂GRUCell, ∂LSTMCell]
             ∂nn = cell(1,2)
             tspan = Float32.([0, t₁])
             tsteps = collect(tspan[1] : tspan[2])
@@ -20,7 +20,7 @@ if isempty(ARGS)
         t₁ = 100
         bs = 7
         x = sqrt(1/2)randn(Float32, bs, t₁)
-        cells = [Fast∂RNNCell, Fast∂GRUCell, Fast∂LSTMCell]
+        cells = [∂RNNCell, ∂GRUCell, ∂LSTMCell]
         interpolators = [CubicSplineRegularGrid, LinearInterpolationRegularGrid, ConstantInterpolationRegularGrid]
 
         for (cell, itp) ∈ Iterators.product(cells, interpolators)
@@ -41,7 +41,7 @@ if "adj" ∈ ARGS
         t₁ = 10
         bs = 7
         x = sqrt(1/2)randn(Float32, bs, t₁)
-        cells = [Fast∂RNNCell, Fast∂GRUCell, Fast∂LSTMCell]
+        cells = [∂RNNCell, ∂GRUCell, ∂LSTMCell]
         interpolators = [CubicSplineRegularGrid, LinearInterpolationRegularGrid, ConstantInterpolationRegularGrid]
 
         for (cell, itp) ∈ Iterators.product(cells, interpolators)
@@ -65,7 +65,7 @@ if isempty(ARGS)
         t₁ = 10
         bs = 7
         x = sqrt(1/2)randn(Float32, bs, t₁)
-        cells = [Fast∂RNNCell, Fast∂GRUCell, Fast∂LSTMCell]
+        cells = [∂RNNCell, ∂GRUCell, ∂LSTMCell]
         interpolators = [CubicSplineRegularGrid, LinearInterpolationRegularGrid, ConstantInterpolationRegularGrid]
 
         for (cell, itp) ∈ Iterators.product(cells, interpolators)

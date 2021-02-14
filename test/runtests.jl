@@ -18,12 +18,12 @@ end
 
 if isempty(ARGS)
   @testset "Continuous time RNN layers" begin
-    include("fast_la.jl")
+    include("layers.jl")
   end
 end
 
 @testset "Continuous time RNN solve & minimization" begin
-  include("fast_rnn_ode.jl")
+  include("rnn_ode.jl")
 end
 
 if isempty(ARGS)
