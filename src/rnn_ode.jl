@@ -61,7 +61,7 @@ function (n::RNNODE{M,P,RE,T,A,K,F,S})(X::IT, p::P=n.p, u₀::UT=get_u₀(X,n)) 
       (u,p,t) -> model(u,f(x(t)),p)
     end
 
-    ff = ODEFunction{false}(dudt_,tgrad=(u,p,t)->zero(eltype(T)))
+    ff = ODEFunction{false}(dudt_,tgrad=(u,p,t)->eltype(T).(zero(u)))
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
     solve(prob,n.args...;sense=n.sense, n.kwargs...)
 end
@@ -75,7 +75,7 @@ function (n::RNNODE{M,P,RE,T,A,K,F,S})(X::IT, p::P=n.p, u₀::UT=get_u₀(X,n)) 
       (u,p,t) -> model(u,f(x(t)),p)
     end
 
-    ff = ODEFunction{false}(dudt_,tgrad=(u,p,t)->zero(eltype(T)))
+    ff = ODEFunction{false}(dudt_,tgrad=(u,p,t)->eltype(T).(zero(u)))
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
     solve(prob,n.args...;sense=n.sense, tstops=tstops, n.kwargs...)
 end
@@ -106,14 +106,14 @@ function (n::RNNODE{M,P,RE,T,A,K,F,S})(X::ConstantInterpolation, p::P=n.p, u₀:
         return vcat(du, reshape(zero(xₜ), nchannels, :))
       end
     end
-    ff = ODEFunction{false}(dudt_,tgrad=(u,p,t)->zero(eltype(T)))
+    ff = ODEFunction{false}(dudt_,tgrad=(u,p,t)->eltype(T).(zero(u)))
     prob = ODEProblem{false}(ff,_u₀,tspan,p)
     solve(prob,n.args...;callback = cb, sense=n.sense, n.kwargs...)
 end
 
 function (n::RNNODE{M,P,RE,T,A,K,F,S})(u₀::UT, p::P=n.p) where {M<:FastRNNLayer,P,RE,T,A,K,F,S,UT<:AbstractArray{<:AbstractFloat}}
     dudt_(u,p,t) = n.model(u,p)
-    ff = ODEFunction{false}(dudt_,tgrad=(u,p,t)->zero(eltype(T)))
+    ff = ODEFunction{false}(dudt_,tgrad=(u,p,t)->eltype(T).(zero(u)))
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
     solve(prob,n.args...;sense=n.sense, n.kwargs...)
 end
