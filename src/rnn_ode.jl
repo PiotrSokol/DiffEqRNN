@@ -1,4 +1,4 @@
-basic_tgrad(u,p,t) = t
+basic_tgrad(u,p,t) = zero(u)
 struct RNNODE{M,P,RE,T,A,K,F,S} <: NeuralDELayer
     model::M
     u₀::P
@@ -75,7 +75,7 @@ function (n::RNNODE{M,P,RE,T,A,K,F,S})(X::IT, p::P=n.p, u₀::UT=get_u₀(X,n)) 
       (u,p,t) -> model(u,f(x(t)),p)
     end
 
-    ff = ODEFunction{false}(dudt_,tgrad=tgrad=(u,p,t)->zero(eltype(T)))
+    ff = ODEFunction{false}(dudt_,tgrad=(u,p,t)->zero(eltype(T)))
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
     solve(prob,n.args...;sense=n.sense, tstops=tstops, n.kwargs...)
 end
@@ -102,18 +102,18 @@ function (n::RNNODE{M,P,RE,T,A,K,F,S})(X::ConstantInterpolation, p::P=n.p, u₀:
       (u,p,t) -> begin
         ũ = @views u[1:end-nchannels,:]
         xₜ = @views u[end-nchannels+1,:]
-        du = model(ũ,n.preprocess(xₜ),p)
+        du = model(ũ,f(xₜ),p)
         return vcat(du, reshape(zero(xₜ), nchannels, :))
       end
     end
-    ff = ODEFunction{false}(dudt_,tgrad=tgrad=(u,p,t)->zero(eltype(T)))
+    ff = ODEFunction{false}(dudt_,tgrad=(u,p,t)->zero(eltype(T)))
     prob = ODEProblem{false}(ff,_u₀,tspan,p)
     solve(prob,n.args...;callback = cb, sense=n.sense, n.kwargs...)
 end
 
 function (n::RNNODE{M,P,RE,T,A,K,F,S})(u₀::UT, p::P=n.p) where {M<:FastRNNLayer,P,RE,T,A,K,F,S,UT<:AbstractArray{<:AbstractFloat}}
     dudt_(u,p,t) = n.model(u,p)
-    ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
+    ff = ODEFunction{false}(dudt_,tgrad=(u,p,t)->zero(eltype(T)))
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
     solve(prob,n.args...;sense=n.sense, n.kwargs...)
 end

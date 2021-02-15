@@ -31,6 +31,7 @@ if isempty(ARGS)
             node = RNNODE(∂nn, tspan, AutoTsit5(Rosenbrock23()), saveat=tsteps, preprocess=permutedims )
             # reltol=1e-8,abstol=1e-8
             sol = node(X)
+            @test length(sol.t) == length(tsteps)
             @test sol.retcode == :Success
         end
     end
