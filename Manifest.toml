@@ -144,6 +144,11 @@ git-tree-sha1 = "48920211c95a6da1914a06c44ec94be70e84ffff"
 uuid = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
 version = "1.1.0"
 
+[[Crayons]]
+git-tree-sha1 = "3f71217b538d7aaee0b69ab47d9b7724ca8afa0d"
+uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
+version = "4.0.4"
+
 [[DataAPI]]
 git-tree-sha1 = "dfb3b7e89e395be1e25c2ad6d7690dc29cc53b1d"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
@@ -169,6 +174,12 @@ version = "1.0.0"
 [[Dates]]
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
+
+[[Debugger]]
+deps = ["CodeTracking", "Crayons", "Highlights", "InteractiveUtils", "JuliaInterpreter", "Markdown", "REPL"]
+git-tree-sha1 = "7977a34a188da33b08ff8c0fd103f6f9f7da874d"
+uuid = "31a5f54b-26ea-5ae9-a837-f05ce5417438"
+version = "0.6.7"
 
 [[DelimitedFiles]]
 deps = ["Mmap"]
@@ -363,6 +374,12 @@ deps = ["Distributions", "FFTW", "ForwardDiff", "KernelDensity", "LinearAlgebra"
 git-tree-sha1 = "2a0e0d7501b78ab7068ba9cb7cf5ddcb6241782b"
 uuid = "af5da776-676b-467e-8baf-acd8249e4f0f"
 version = "1.0.0"
+
+[[Highlights]]
+deps = ["DocStringExtensions", "InteractiveUtils", "REPL"]
+git-tree-sha1 = "f823a2d04fb233d52812c8024a6d46d9581904a4"
+uuid = "eafb193a-b7ab-5a9e-9068-77385905fa72"
+version = "0.4.5"
 
 [[Hwloc]]
 deps = ["Hwloc_jll"]

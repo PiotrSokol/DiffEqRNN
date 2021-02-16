@@ -297,3 +297,7 @@ function ChainRulesCore.rrule(::typeof(DataInterpolations._interpolate), A::Unio
     interpolate_pullback(Δ) = (NO_FIELDS, DoesNotExist(), derivative(A, t) .* Δ)
     return DataInterpolations._interpolate(A, t), interpolate_pullback
 end
+function ChainRulesCore.rrule(::typeof(DataInterpolations._interpolate), A::ConstantInterpolation, t::Number)
+    interpolate_pullback(Δ) = (NO_FIELDS, DoesNotExist(), zero(Δ))
+    return DataInterpolations._interpolate(A, t), interpolate_pullback
+end

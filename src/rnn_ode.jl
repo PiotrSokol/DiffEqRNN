@@ -82,33 +82,44 @@ end
 
 function (n::RNNODE{M,P,RE,T,A,K,F,S})(X::ConstantInterpolation, p::P=n.p, u₀::UT=get_u₀(X,n)) where {M<:FastRNNLayer,P,RE,T,A,K,F,S, UT<:AbstractArray{<:AbstractFloat}}
 
-    x = nograd(X, f=identity)
-    ∂x = ignore() do
-      ∂x = nograd(ConstantInterpolation{true}(hcat(X.u[:,1],diff(X.u, dims=2)), X.t,X.dir), f=identity)
+    # x = nograd(X, f=identity)
+    # ∂x = ignore() do
+    #   ∂x = nograd(ConstantInterpolation{true}(hcat(X.u[:,1],diff(X.u, dims=2)), X.t,X.dir), f=identity)
+    # end
+
+    # tstops = eltype(n.u₀).(collect(X.t))
+    # tspan = getfield(n,:tspan)
+
+    # nchannels, cb = ignore() do
+    #   nchannels = infer_batchsizes(∂x) ÷ size(∂x.interpolant.u,1)
+    #   affect!(integrator) = integrator.u[end-nchannels+1, :] += ∂x(integrator.t)
+    #   cb = PresetTimeCallback(setdiff(tstops,tspan), affect!, save_positions=(false,false))
+    #   return nchannels, cb
+    # end
+    # _u₀ = vcat(u₀,reshape(x(tspan[1]), nchannels, :))
+
+    # dudt_ = let model=n.model, f::F=n.preprocess
+    #   (u,p,t) -> begin
+    #     ũ = @views u[1:end-nchannels,:]
+    #     xₜ = @views u[end-nchannels+1,:]
+    #     du = model(ũ,f(xₜ),p)
+    #     return vcat(du, reshape(zero(xₜ), nchannels, :))
+    #   end
+    # end
+    # ff = ODEFunction{false}(dudt_,tgrad=(u,p,t)->eltype(T).(zero(u)))
+    # prob = ODEProblem{false}(ff,_u₀,tspan,p)
+    # solve(prob,n.args...;callback = cb, sense=n.sense, n.kwargs...)
+    
+    tstops = eltype(T).(collect(X.t))
+
+    dudt_= let x=X, model = n.model, f::F=n.preprocess
+      (u,p,t) -> model(u,f(x(t)),p)
     end
 
-    tstops = eltype(n.u₀).(collect(X.t))
-    tspan = getfield(n,:tspan)
-
-    nchannels, cb = ignore() do
-      nchannels = infer_batchsizes(∂x) ÷ size(∂x.interpolant.u,1)
-      affect!(integrator) = integrator.u[end-nchannels+1, :] += ∂x(integrator.t)
-      cb = PresetTimeCallback(setdiff(tstops,tspan), affect!, save_positions=(false,false))
-      return nchannels, cb
-    end
-    _u₀ = vcat(u₀,reshape(x(tspan[1]), nchannels, :))
-
-    dudt_ = let model=n.model, f::F=n.preprocess
-      (u,p,t) -> begin
-        ũ = @views u[1:end-nchannels,:]
-        xₜ = @views u[end-nchannels+1,:]
-        du = model(ũ,f(xₜ),p)
-        return vcat(du, reshape(zero(xₜ), nchannels, :))
-      end
-    end
     ff = ODEFunction{false}(dudt_,tgrad=(u,p,t)->eltype(T).(zero(u)))
-    prob = ODEProblem{false}(ff,_u₀,tspan,p)
-    solve(prob,n.args...;callback = cb, sense=n.sense, n.kwargs...)
+    prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
+    sol = solve(prob,n.args...;sense=n.sense, tstops=tstops, n.kwargs...)
+
 end
 
 function (n::RNNODE{M,P,RE,T,A,K,F,S})(u₀::UT, p::P=n.p) where {M<:FastRNNLayer,P,RE,T,A,K,F,S,UT<:AbstractArray{<:AbstractFloat}}
