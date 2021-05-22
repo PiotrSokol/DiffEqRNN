@@ -294,10 +294,10 @@ function DataInterpolations.derivative(A::DataInterpolations.CubicSpline{<:Abstr
 end
 
 function ChainRulesCore.rrule(::typeof(DataInterpolations._interpolate), A::Union{CubicSplineRegularGrid,LinearInterpolationRegularGrid,CubicSpline,LinearInterpolation}, t::Number)
-    interpolate_pullback(Δ) = (NO_FIELDS, DoesNotExist(), derivative(A, t) .* Δ)
+    interpolate_pullback(Δ) = (NO_FIELDS, NoTangent(), derivative(A, t) .* Δ)
     return DataInterpolations._interpolate(A, t), interpolate_pullback
 end
 function ChainRulesCore.rrule(::typeof(DataInterpolations._interpolate), A::ConstantInterpolation, t::Number)
-    interpolate_pullback(Δ) = (NO_FIELDS, DoesNotExist(), zero(Δ))
+    interpolate_pullback(Δ) = (NO_FIELDS, NoTangent(), zero(Δ))
     return DataInterpolations._interpolate(A, t), interpolate_pullback
 end
