@@ -148,7 +148,7 @@ if "adj" ∈ ARGS
 
       for (cell, itp) ∈ Iterators.product(cells, interpolators)
           X = itp(x)
-          ∂nn = cell(1,2) |> gpu
+          ∂nn = cell(1,2)
           tspan = Float32.((0, t₁))
           tsteps = collect(tspan[1] : tspan[2])
           node = RNNODE(∂nn, tspan, Tsit5(), reltol=1e-4,abstol=1e-4, saveat=tsteps, preprocess=permutedims )
