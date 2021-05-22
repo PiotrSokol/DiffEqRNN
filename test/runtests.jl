@@ -31,9 +31,7 @@ if isempty(ARGS)
 end
 
 if Flux.use_cuda[]
-  let to_run = to_run
-    include("gpu.jl")
-  end
+  include("gpu.jl")
 else
   @warn "CUDA unavailable, not testing GPU support"
 end
