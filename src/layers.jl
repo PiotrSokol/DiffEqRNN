@@ -104,7 +104,6 @@ struct ∂LSTMCell{F2,V} <: FastRNNLayer
         Wᵢ = init(out * 4, in)
         Wᵣ = init(out * 4, out)
         b = initb(out * 4)
-        u₀ = state0_init(out)
         b[gate(out, 2)] .=2
         u₀ = state0_init(2out)
         
