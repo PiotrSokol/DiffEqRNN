@@ -54,7 +54,7 @@ function get_u₀(X::AbstractMatrix{<:AbstractFloat}, n::NeuralDELayer)
   u₀ = repeat(n.u₀, 1, inferred_batchsize)
 end
 ##
-function (n::RNNODE{M,P{FT},RE,T,A,K,F,S})(X::IT, p::AbstractArray{FT}=n.p, u₀::UT=get_u₀(X,n)) where{M<:FastRNNLayer,P,FT,RE,T,A,K,F,S, IT<:Union{CubicSpline,CubicSplineRegularGrid},
+function (n::RNNODE{M,P,RE,T,A,K,F,S})(X::IT, p=n.p, u₀::UT=get_u₀(X,n)) where{M<:FastRNNLayer,P,RE,T,A,K,F,S, IT<:Union{CubicSpline,CubicSplineRegularGrid},
   UT<:AbstractArray{<:AbstractFloat}}
 
     dudt_= let x=X, model = n.model, f::F=n.preprocess
@@ -66,7 +66,7 @@ function (n::RNNODE{M,P{FT},RE,T,A,K,F,S})(X::IT, p::AbstractArray{FT}=n.p, u₀
     solve(prob,n.args...;sense=n.sense, n.kwargs...)
 end
 
-function (n::RNNODE{M,P{FT},RE,T,A,K,F,S})(X::IT, ::AbstractArray{FT}=n.p, u₀::UT=get_u₀(X,n)) where {M<:FastRNNLayer,P,FT,RE,T,A,K,F,S, IT<:Union{LinearInterpolation,LinearInterpolationRegularGrid},
+function (n::RNNODE{M,P,RE,T,A,K,F,S})(X::IT, p=n.p, u₀::UT=get_u₀(X,n)) where {M<:FastRNNLayer,P,RE,T,A,K,F,S, IT<:Union{LinearInterpolation,LinearInterpolationRegularGrid},
   UT<:AbstractArray{<:AbstractFloat}}
 
     tstops = eltype(u₀).(collect(X.t))
@@ -80,7 +80,7 @@ function (n::RNNODE{M,P{FT},RE,T,A,K,F,S})(X::IT, ::AbstractArray{FT}=n.p, u₀:
     solve(prob,n.args...;sense=n.sense, tstops=tstops, n.kwargs...)
 end
 
-function (n::RNNODE{M,P{FT},RE,T,A,K,F,S})(X::ConstantInterpolation, ::AbstractArray{FT}=n.p, u₀::UT=get_u₀(X,n)) where {M<:FastRNNLayer,P,FT,RE,T,A,K,F,S, UT<:AbstractArray{<:AbstractFloat}}
+function (n::RNNODE{M,P,RE,T,A,K,F,S})(X::ConstantInterpolation, p=n.p, u₀::UT=get_u₀(X,n)) where {M<:FastRNNLayer,P,RE,T,A,K,F,S, UT<:AbstractArray{<:AbstractFloat}}
 
     # x = nograd(X, f=identity)
     # ∂x = ignore() do
@@ -122,7 +122,7 @@ function (n::RNNODE{M,P{FT},RE,T,A,K,F,S})(X::ConstantInterpolation, ::AbstractA
 
 end
 
-function (n::RNNODE{M,P{FT},RE,T,A,K,F,S})(u₀::UT, ::AbstractArray{FT}=n.p) where {M<:FastRNNLayer,P,FT,RE,T,A,K,F,S,UT<:AbstractArray{<:AbstractFloat}}
+function (n::RNNODE{M,P,RE,T,A,K,F,S})(u₀::UT, p=n.p) where {M<:FastRNNLayer,P,RE,T,A,K,F,S,UT<:AbstractArray{<:AbstractFloat}}
     dudt_(u,p,t) = n.model(u,p)
     ff = ODEFunction{false}(dudt_,tgrad=(u,p,t)->eltype(T).(zero(u)))
     prob = ODEProblem{false}(ff,u₀,getfield(n,:tspan),p)
