@@ -175,7 +175,7 @@ if isempty(ARGS)
       Random.seed!(0)
       t₁ = 10
       bs = 7
-      x = sqrt(1/2)randn(Float32, bs, t₁)
+      x = sqrt(1/2)randn(Float32, bs, t₁) |> gpu
       cells = [∂RNNCell, ∂GRUCell, ∂LSTMCell]
       interpolators = [CubicSplineRegularGrid, LinearInterpolationRegularGrid, ConstantInterpolationRegularGrid]
 
