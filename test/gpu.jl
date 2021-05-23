@@ -134,7 +134,7 @@ if isempty(ARGS)
           tsteps = collect(tspan[1] : tspan[2])
           node = RNNODE(∂nn, tspan, Tsit5(), saveat=tsteps, preprocess=permutedims )
           # reltol=1e-8,abstol=1e-8
-          u₀ = node.u₀|>gpu
+          u₀ = node.u₀|>gpu |> (x)-> repeat(x₀, 1, bs)
           p = node.p|>gpu
           sol = node(X,p,u₀)
           @test sol.retcode == :Success
@@ -157,7 +157,7 @@ if "adj" ∈ ARGS
           tsteps = collect(tspan[1] : tspan[2])
           node = RNNODE(∂nn, tspan, Tsit5(), reltol=1e-4,abstol=1e-4, saveat=tsteps, preprocess=permutedims )
           # reltol=1e-8,abstol=1e-8
-          u₀ = node.u₀|>gpu
+          u₀ = node.u₀|>gpu |> (x)-> repeat(x₀, 1, bs)
           p = node.p|>gpu
           predict_neuralode(p) = gpu(node(X,p,u₀))
           function loss_neuralode(p)
@@ -185,7 +185,7 @@ if isempty(ARGS)
           tspan = Float32.((0, t₁))
           tsteps = collect(tspan[1] : tspan[2])
           node = RNNODE(∂nn, tspan, Tsit5(), reltol=1e-4,abstol=1e-4, saveat=tsteps, preprocess=permutedims )
-          u₀ = node.u₀|>gpu
+          u₀ = node.u₀|>gpu |> (x)-> repeat(x₀, 1, bs)
           p = node.p|>gpu
           # reltol=1e-8,abstol=1e-8
           predict_neuralode(p) = gpu(node(X, p, u₀))
