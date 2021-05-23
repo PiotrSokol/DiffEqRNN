@@ -194,9 +194,10 @@ if isempty(ARGS)
               loss = sum(abs2, pred .- 0.0)
               return loss
           end
+          intial_loss = loss_neuralode(p)
           optim = ADAM(0.05)
-          result_neuralode = DiffEqFlux.sciml_train(loss_neuralode, node.p, optim, maxiters = 100)
-          @test result_neuralode.ls_success
+          result_neuralode = DiffEqFlux.sciml_train(loss_neuralode, p, optim, maxiters = 100)
+          @test intial_loss >= result_neuralode.minimum
       end
   end
 end
