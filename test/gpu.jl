@@ -136,7 +136,7 @@ if isempty(ARGS)
           # reltol=1e-8,abstol=1e-8
           u₀ = node.u₀|>gpu
           p = node.p|>gpu
-          sol = node(X,p,u)
+          sol = node(X,p,u₀)
           @test sol.retcode == :Success
       end
   end
